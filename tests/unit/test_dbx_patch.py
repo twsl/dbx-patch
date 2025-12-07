@@ -139,7 +139,7 @@ class TestWsfsImportHookPatch:
         result = patch_wsfs_import_hook(verbose=False)
 
         # Should indicate hook was not found
-        assert "hook_found" in result
+        assert hasattr(result, "hook_found")
 
     def test_is_patched_initial_state(self) -> None:
         """Test initial patch state is False."""
@@ -166,7 +166,7 @@ class TestPythonPathHookPatch:
         result = patch_python_path_hook(verbose=False)
 
         # Should indicate hook was not found
-        assert "hook_found" in result
+        assert hasattr(result, "hook_found")
 
     def test_is_patched_initial_state(self) -> None:
         """Test initial patch state."""
@@ -187,13 +187,15 @@ class TestApplyPatch:
     def test_check_patch_status(self) -> None:
         """Test checking patch status."""
         from dbx_patch.apply_patch import check_patch_status
+        from dbx_patch.models import StatusResult
 
         status = check_patch_status(verbose=False)
 
-        assert "wsfs_hook_patched" in status
-        assert "python_path_hook_patched" in status
-        assert "editable_paths_count" in status
-        assert "pth_files_processed" in status
+        assert isinstance(status, StatusResult)
+        assert hasattr(status, "wsfs_hook_patched")
+        assert hasattr(status, "python_path_hook_patched")
+        assert hasattr(status, "editable_paths_count")
+        assert hasattr(status, "pth_files_processed")
 
     def test_apply_all_patches_structure(self) -> None:
         """Test that apply_all_patches returns correct structure."""
