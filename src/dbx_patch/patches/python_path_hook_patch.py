@@ -86,11 +86,10 @@ def patch_python_path_hook(verbose: bool = True) -> PatchResult:
         PatchResult with operation details
     """
     global _PATCH_APPLIED, _ORIGINAL_HANDLE_SYS_PATH, _EDITABLE_PATHS
-    logger = get_logger(verbose) if verbose else None
+    logger = get_logger(verbose)
 
     if _PATCH_APPLIED:
-        if logger:
-            logger.info("PythonPathHook patch already applied.")
+        logger.info("PythonPathHook patch already applied.")
         return PatchResult(
             success=True,
             already_patched=True,
@@ -106,16 +105,14 @@ def patch_python_path_hook(verbose: bool = True) -> PatchResult:
         # Detect editable paths
         _EDITABLE_PATHS = detect_editable_paths()
 
-        if logger:
-            logger.info(f"Patching PythonPathHook to preserve {len(_EDITABLE_PATHS)} editable install path(s)...")
+        logger.info(f"Patching PythonPathHook to preserve {len(_EDITABLE_PATHS)} editable install path(s)...")
 
         # Save original method
         _ORIGINAL_HANDLE_SYS_PATH = PythonPathHook._handle_sys_path_maybe_updated
 
         # Type narrowing check
         if _ORIGINAL_HANDLE_SYS_PATH is None:
-            if logger:
-                logger.error("Failed to save original method")
+            logger.error("Failed to save original method")
             return PatchResult(
                 success=False,
                 already_patched=False,
@@ -128,13 +125,12 @@ def patch_python_path_hook(verbose: bool = True) -> PatchResult:
 
         _PATCH_APPLIED = True
 
-        if logger:
-            logger.success("PythonPathHook patched successfully!")
-            if _EDITABLE_PATHS:
-                with logger.indent():
-                    logger.info("Preserving editable paths:")
-                    for path in sorted(_EDITABLE_PATHS):
-                        logger.info(f"- {path}")
+        logger.success("PythonPathHook patched successfully!")
+        if _EDITABLE_PATHS:
+            with logger.indent():
+                logger.info("Preserving editable paths:")
+                for path in sorted(_EDITABLE_PATHS):
+                    logger.info(f"- {path}")
 
         return PatchResult(
             success=True,
@@ -145,18 +141,16 @@ def patch_python_path_hook(verbose: bool = True) -> PatchResult:
         )
 
     except ImportError as e:
-        if logger:
-            logger.warning(f"Could not import PythonPathHook: {e}")
-            with logger.indent():
-                logger.info("This is normal if not running in Databricks environment.")
+        logger.warning(f"Could not import PythonPathHook: {e}")
+        with logger.indent():
+            logger.info("This is normal if not running in Databricks environment.")
         return PatchResult(
             success=False,
             already_patched=False,
             hook_found=False,
         )
     except Exception as e:
-        if logger:
-            logger.error(f"Error patching PythonPathHook: {e}")  # noqa: TRY400
+        logger.error(f"Error patching PythonPathHook: {e}")  # noqa: TRY400
         return PatchResult(
             success=False,
             already_patched=False,
@@ -174,11 +168,10 @@ def unpatch_python_path_hook(verbose: bool = True) -> bool:
         True if unpatch was successful, False otherwise
     """
     global _PATCH_APPLIED, _ORIGINAL_HANDLE_SYS_PATH
-    logger = get_logger(verbose) if verbose else None
+    logger = get_logger(verbose)
 
     if not _PATCH_APPLIED:
-        if logger:
-            logger.info("No patch to remove.")
+        logger.info("No patch to remove.")
         return False
 
     try:
@@ -189,17 +182,14 @@ def unpatch_python_path_hook(verbose: bool = True) -> bool:
             PythonPathHook._handle_sys_path_maybe_updated = _ORIGINAL_HANDLE_SYS_PATH
             _PATCH_APPLIED = False
 
-            if logger:
-                logger.success("PythonPathHook patch removed successfully.")
+            logger.success("PythonPathHook patch removed successfully.")
             return True
         else:
-            if logger:
-                logger.warning("Original method not saved, cannot unpatch.")
+            logger.warning("Original method not saved, cannot unpatch.")
             return False
 
     except Exception as e:
-        if logger:
-            logger.error(f"Error removing patch: {e}")  # noqa: TRY400
+        logger.error(f"Error removing patch: {e}")  # noqa: TRY400
         return False
 
 

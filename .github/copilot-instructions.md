@@ -8,7 +8,7 @@ This repository provides patches to enable editable Python package installations
 
 ### What It Contains
 
-The `databricks/python_shell/lib/dbruntime/` directory contains **original, unmodified files** from Databricks' runtime environment. These files represent Databricks' internal Python kernel/runtime customizations that are deployed on Databricks clusters.
+The `databricks/python_shell/lib/dbruntime/` directory contains **original, unmodified files** from Databricks' runtime environment. These files represent Databricks' internal Python kernel/runtime customizations that are deployed on Databricks clusters. On a Databricks cluster, the databricks files are located at `/databricks/python_shell/lib/dbruntime/`.
 
 **Key characteristics:**
 

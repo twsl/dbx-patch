@@ -59,11 +59,10 @@ def patch_sys_path_init(verbose: bool = True) -> PatchResult:
         PatchResult with operation details
     """
     global _PATCH_APPLIED, _ORIGINAL_PATCH_SYS_PATH
-    logger = get_logger(verbose) if verbose else None
+    logger = get_logger(verbose)
 
     if _PATCH_APPLIED:
-        if logger:
-            logger.info("sys_path_init patch already applied.")
+        logger.info("sys_path_init patch already applied.")
         return PatchResult(
             success=True,
             already_patched=True,
@@ -75,24 +74,21 @@ def patch_sys_path_init(verbose: bool = True) -> PatchResult:
 
         # Check if function exists
         if not hasattr(sys_path_init, "patch_sys_path_with_developer_paths"):
-            if logger:
-                logger.warning("patch_sys_path_with_developer_paths not found in sys_path_init")
+            logger.warning("patch_sys_path_with_developer_paths not found in sys_path_init")
             return PatchResult(
                 success=False,
                 already_patched=False,
                 function_found=False,
             )
 
-        if logger:
-            logger.info("Patching sys_path_init.patch_sys_path_with_developer_paths...")
+        logger.info("Patching sys_path_init.patch_sys_path_with_developer_paths...")
 
         # Save original function
         _ORIGINAL_PATCH_SYS_PATH = sys_path_init.patch_sys_path_with_developer_paths
 
         # Type narrowing check
         if _ORIGINAL_PATCH_SYS_PATH is None:
-            if logger:
-                logger.error("Failed to save original function")
+            logger.error("Failed to save original function")
             return PatchResult(
                 success=False,
                 already_patched=False,
@@ -105,10 +101,9 @@ def patch_sys_path_init(verbose: bool = True) -> PatchResult:
 
         _PATCH_APPLIED = True
 
-        if logger:
-            logger.success("sys_path_init patched successfully!")
-            with logger.indent():
-                logger.info(".pth files will be processed automatically during sys.path initialization")
+        logger.success("sys_path_init patched successfully!")
+        with logger.indent():
+            logger.info(".pth files will be processed automatically during sys.path initialization")
 
         return PatchResult(
             success=True,
@@ -117,16 +112,14 @@ def patch_sys_path_init(verbose: bool = True) -> PatchResult:
         )
 
     except ImportError as e:
-        if logger:
-            logger.warning(f"Could not import sys_path_init: {e}")
+        logger.warning(f"Could not import sys_path_init: {e}")
         return PatchResult(
             success=False,
             already_patched=False,
             function_found=False,
         )
     except Exception as e:
-        if logger:
-            logger.error(f"Error patching sys_path_init: {e}")  # noqa: TRY400
+        logger.error(f"Error patching sys_path_init: {e}")  # noqa: TRY400
         return PatchResult(
             success=False,
             already_patched=False,
@@ -144,11 +137,10 @@ def unpatch_sys_path_init(verbose: bool = True) -> bool:
         True if unpatch was successful, False otherwise
     """
     global _PATCH_APPLIED, _ORIGINAL_PATCH_SYS_PATH
-    logger = get_logger(verbose) if verbose else None
+    logger = get_logger(verbose)
 
     if not _PATCH_APPLIED:
-        if logger:
-            logger.info("No patch to remove.")
+        logger.info("No patch to remove.")
         return False
 
     try:
@@ -159,17 +151,14 @@ def unpatch_sys_path_init(verbose: bool = True) -> bool:
             sys_path_init.patch_sys_path_with_developer_paths = _ORIGINAL_PATCH_SYS_PATH
             _PATCH_APPLIED = False
 
-            if logger:
-                logger.success("sys_path_init patch removed successfully.")
+            logger.success("sys_path_init patch removed successfully.")
             return True
         else:
-            if logger:
-                logger.warning("Original function not saved, cannot unpatch.")
+            logger.warning("Original function not saved, cannot unpatch.")
             return False
 
     except Exception as e:
-        if logger:
-            logger.error(f"Error removing patch: {e}")  # noqa: TRY400
+        logger.error(f"Error removing patch: {e}")  # noqa: TRY400
         return False
 
 

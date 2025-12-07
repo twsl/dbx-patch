@@ -202,10 +202,9 @@ def process_all_pth_files(force: bool = False, verbose: bool = True) -> PthProce
     all_paths = []
     pth_files_count = 0
     egg_link_paths = []
-    logger = get_logger(verbose) if verbose else None
+    logger = get_logger(verbose)
 
-    if logger:
-        logger.info(f"Scanning {len(site_dirs)} site-packages directories for editable installs...")
+    logger.info(f"Scanning {len(site_dirs)} site-packages directories for editable installs...")
 
     # Process .pth files
     for site_dir in site_dirs:
@@ -215,7 +214,7 @@ def process_all_pth_files(force: bool = False, verbose: bool = True) -> PthProce
         for pth_file in pth_files:
             paths = process_pth_file(pth_file)
             all_paths.extend(paths)
-            if logger and paths:
+            if paths:
                 with logger.indent():
                     logger.info(f"Found {len(paths)} path(s) in {Path(pth_file).name}")
 
@@ -240,22 +239,21 @@ def process_all_pth_files(force: bool = False, verbose: bool = True) -> PthProce
 
     paths_added = add_paths_to_sys_path(unique_paths, prepend=False)
 
-    if logger:
-        logger.blank()
-        logger.info("Results:")
-        with logger.indent():
-            logger.info(f"- {pth_files_count} .pth files scanned")
-            logger.info(f"- {len(egg_link_paths)} .egg-link files found")
-            logger.info(f"- {len(metadata_paths)} editable installs via metadata")
-            logger.info(f"- {len(unique_paths)} total unique editable paths")
-            logger.info(f"- {paths_added} paths added to sys.path")
+    logger.blank()
+    logger.info("Results:")
+    with logger.indent():
+        logger.info(f"- {pth_files_count} .pth files scanned")
+        logger.info(f"- {len(egg_link_paths)} .egg-link files found")
+        logger.info(f"- {len(metadata_paths)} editable installs via metadata")
+        logger.info(f"- {len(unique_paths)} total unique editable paths")
+        logger.info(f"- {paths_added} paths added to sys.path")
 
-        if unique_paths:
-            logger.blank()
-            logger.info("Editable install paths:")
-            with logger.indent():
-                for path in unique_paths:
-                    logger.info(f"- {path}")
+    if unique_paths:
+        logger.blank()
+        logger.info("Editable install paths:")
+        with logger.indent():
+            for path in unique_paths:
+                logger.info(f"- {path}")
 
     return PthProcessingResult(
         site_dirs_scanned=len(site_dirs),

@@ -40,6 +40,7 @@ class ApplyPatchesResult:
     pth_processing: PthProcessingResult | None
     wsfs_hook_patch: PatchResult | None
     python_path_hook_patch: PatchResult | None
+    autoreload_hook_patch: PatchResult | None
     overall_success: bool
     editable_paths: list[str]
 
@@ -52,6 +53,7 @@ class VerifyResult:
     paths_in_sys_path: list[str]
     wsfs_hook_patched: bool
     python_path_hook_patched: bool
+    autoreload_hook_patched: bool
     importable_packages: list[str]
     status: str  # 'ok', 'warning', or 'error'
 
@@ -63,6 +65,7 @@ class StatusResult:
     sys_path_init_patched: bool
     wsfs_hook_patched: bool
     python_path_hook_patched: bool
+    autoreload_hook_patched: bool
     editable_paths_count: int
     pth_files_processed: bool
 
@@ -74,4 +77,14 @@ class RemovePatchesResult:
     sys_path_init_unpatched: bool
     wsfs_hook_unpatched: bool
     python_path_hook_unpatched: bool
+    autoreload_hook_unpatched: bool
     success: bool
+
+
+@dataclass
+class SitecustomizeStatus:
+    """Status of sitecustomize.py installation."""
+
+    installed: bool
+    path: str | None
+    is_dbx_patch: bool
