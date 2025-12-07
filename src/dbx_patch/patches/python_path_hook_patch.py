@@ -1,0 +1,210 @@
+"""PythonPathHook Patch for Editable Installs.
+
+This module monkey-patches dbruntime.pythonPathHook.PythonPathHook to preserve
+editable install paths when sys.path is modified by the Databricks runtime.
+
+The PythonPathHook manages sys.path updates when changing notebooks or
+working directories. Without this patch, editable install paths can be
+lost during these updates.
+"""
+
+from collections.abc import Callable
+import sys
+
+from dbx_patch.models import PatchResult
+from dbx_patch.utils.logger import get_logger
+
+_PATCH_APPLIED = False
+_ORIGINAL_HANDLE_SYS_PATH = None
+_EDITABLE_PATHS: set[str] = set()
+
+
+def detect_editable_paths() -> set[str]:
+    """Detect all editable install paths currently in sys.path.
+
+    Returns:
+        Set of absolute paths to editable install directories
+    """
+    from dbx_patch.pth_processor import get_editable_install_paths
+
+    return get_editable_install_paths()
+
+
+def refresh_editable_paths() -> int:
+    """Refresh the cached list of editable install paths.
+
+    Returns:
+        Number of editable paths detected
+    """
+    global _EDITABLE_PATHS
+    _EDITABLE_PATHS = detect_editable_paths()
+    return len(_EDITABLE_PATHS)
+
+
+def create_patched_handle_sys_path(original_method) -> Callable[..., None]:
+    """Create a patched version of PythonPathHook._handle_sys_path_maybe_updated.
+
+    That preserves editable install paths.
+
+    Args:
+        original_method: The original _handle_sys_path_maybe_updated method
+
+    Returns:
+        Patched method that preserves editable paths
+    """
+
+    def patched_handle_sys_path_maybe_updated(self) -> None:
+        # Call original method first
+        original_method(self)
+
+        # Ensure all editable paths are still in sys.path
+        if _EDITABLE_PATHS:
+            paths_to_restore = []
+            for editable_path in _EDITABLE_PATHS:
+                if editable_path not in sys.path:
+                    paths_to_restore.append(editable_path)
+
+            # Restore missing paths (append to end to not interfere with workspace paths)
+            for path in paths_to_restore:
+                sys.path.append(path)
+
+    return patched_handle_sys_path_maybe_updated
+
+
+def patch_python_path_hook(verbose: bool = True) -> PatchResult:
+    """Patch the PythonPathHook class to preserve editable install paths.
+
+    This function:
+    1. Detects all editable install paths
+    2. Monkey-patches PythonPathHook._handle_sys_path_maybe_updated to preserve them
+
+    Args:
+        verbose: If True, print status messages
+
+    Returns:
+        PatchResult with operation details
+    """
+    global _PATCH_APPLIED, _ORIGINAL_HANDLE_SYS_PATH, _EDITABLE_PATHS
+    logger = get_logger(verbose) if verbose else None
+
+    if _PATCH_APPLIED:
+        if logger:
+            logger.info("PythonPathHook patch already applied.")
+        return PatchResult(
+            success=True,
+            already_patched=True,
+            editable_paths_count=len(_EDITABLE_PATHS),
+            editable_paths=sorted(_EDITABLE_PATHS),
+            hook_found=True,
+        )
+
+    try:
+        # Import the PythonPathHook class
+        from dbruntime.pythonPathHook import PythonPathHook  # pyright: ignore[reportMissingImports]
+
+        # Detect editable paths
+        _EDITABLE_PATHS = detect_editable_paths()
+
+        if logger:
+            logger.info(f"Patching PythonPathHook to preserve {len(_EDITABLE_PATHS)} editable install path(s)...")
+
+        # Save original method
+        _ORIGINAL_HANDLE_SYS_PATH = PythonPathHook._handle_sys_path_maybe_updated
+
+        # Create and apply patch
+        patched_method = create_patched_handle_sys_path(_ORIGINAL_HANDLE_SYS_PATH)
+        PythonPathHook._handle_sys_path_maybe_updated = patched_method
+
+        _PATCH_APPLIED = True
+
+        if logger:
+            logger.success("PythonPathHook patched successfully!")
+            if _EDITABLE_PATHS:
+                with logger.indent():
+                    logger.info("Preserving editable paths:")
+                    for path in sorted(_EDITABLE_PATHS):
+                        logger.info(f"- {path}")
+
+        return PatchResult(
+            success=True,
+            already_patched=False,
+            editable_paths_count=len(_EDITABLE_PATHS),
+            editable_paths=sorted(_EDITABLE_PATHS),
+            hook_found=True,
+        )
+
+    except ImportError as e:
+        if logger:
+            logger.warning(f"Could not import PythonPathHook: {e}")
+            with logger.indent():
+                logger.info("This is normal if not running in Databricks environment.")
+        return PatchResult(
+            success=False,
+            already_patched=False,
+            hook_found=False,
+        )
+    except Exception as e:
+        if logger:
+            logger.error(f"Error patching PythonPathHook: {e}")  # noqa: TRY400
+        return PatchResult(
+            success=False,
+            already_patched=False,
+            hook_found=True,
+        )
+
+
+def unpatch_python_path_hook(verbose: bool = True) -> bool:
+    """Remove the patch and restore original PythonPathHook behavior.
+
+    Args:
+        verbose: If True, print status messages
+
+    Returns:
+        True if unpatch was successful, False otherwise
+    """
+    global _PATCH_APPLIED, _ORIGINAL_HANDLE_SYS_PATH
+    logger = get_logger(verbose) if verbose else None
+
+    if not _PATCH_APPLIED:
+        if logger:
+            logger.info("No patch to remove.")
+        return False
+
+    try:
+        from dbruntime.pythonPathHook import PythonPathHook  # pyright: ignore[reportMissingImports]
+
+        # Restore original method
+        if _ORIGINAL_HANDLE_SYS_PATH is not None:
+            PythonPathHook._handle_sys_path_maybe_updated = _ORIGINAL_HANDLE_SYS_PATH
+            _PATCH_APPLIED = False
+
+            if logger:
+                logger.success("PythonPathHook patch removed successfully.")
+            return True
+        else:
+            if logger:
+                logger.warning("Original method not saved, cannot unpatch.")
+            return False
+
+    except Exception as e:
+        if logger:
+            logger.error(f"Error removing patch: {e}")  # noqa: TRY400
+        return False
+
+
+def is_patched() -> bool:
+    """Check if the PythonPathHook patch is currently applied.
+
+    Returns:
+        True if patched, False otherwise
+    """
+    return _PATCH_APPLIED
+
+
+def get_preserved_editable_paths() -> set[str]:
+    """Get the current set of editable paths being preserved.
+
+    Returns:
+        Set of absolute paths that are being preserved
+    """
+    return _EDITABLE_PATHS.copy()
