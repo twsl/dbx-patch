@@ -12,6 +12,7 @@ Supports:
 
 import json
 import os
+from pathlib import Path
 import sys
 
 from dbx_patch.models import PthProcessingResult
@@ -27,8 +28,9 @@ def get_site_packages_dirs() -> list[str]:
     site_dirs = []
     for path in sys.path:
         if isinstance(path, str) and ("site-packages" in path or "dist-packages" in path):
-            if os.path.exists(path) and os.path.isdir(path):
-                site_dirs.append(os.path.abspath(path))
+            path_obj = Path(path)
+            if path_obj.exists() and path_obj.is_dir():
+                site_dirs.append(str(path_obj.resolve()))
     return list(dict.fromkeys(site_dirs))  # Remove duplicates while preserving order
 
 
@@ -43,11 +45,12 @@ def find_pth_files(site_packages_dir: str) -> list[str]:
     """
     pth_files = []
     try:
+        site_packages_path = Path(site_packages_dir)
         for entry in os.listdir(site_packages_dir):
             if entry.endswith(".pth"):
-                pth_path = os.path.join(site_packages_dir, entry)
-                if os.path.isfile(pth_path):
-                    pth_files.append(pth_path)
+                pth_path = site_packages_path / entry
+                if pth_path.is_file():
+                    pth_files.append(str(pth_path))
     except (OSError, PermissionError) as e:
         get_logger().warning(f"Could not scan {site_packages_dir}: {e}")
     return pth_files
@@ -82,14 +85,15 @@ def process_pth_file(pth_file_path: str) -> list[str]:
                     continue
 
                 # Check if it's a valid directory path
-                if os.path.isabs(line):
-                    abs_path = line
+                line_path = Path(line)
+                if line_path.is_absolute():
+                    abs_path = line_path
                 else:
                     # Relative paths are relative to the .pth file's directory
-                    abs_path = os.path.abspath(os.path.join(os.path.dirname(pth_file_path), line))
+                    abs_path = (Path(pth_file_path).parent / line).resolve()
 
-                if os.path.exists(abs_path) and os.path.isdir(abs_path):
-                    paths.append(abs_path)
+                if abs_path.exists() and abs_path.is_dir():
+                    paths.append(str(abs_path))
     except (OSError, UnicodeDecodeError) as e:
         get_logger().warning(f"Could not process {pth_file_path}: {e}")
 
@@ -107,14 +111,17 @@ def find_egg_link_paths(site_packages_dir: str) -> list[str]:
     """
     paths = []
     try:
+        site_packages_path = Path(site_packages_dir)
         for entry in os.listdir(site_packages_dir):
             if entry.endswith(".egg-link"):
-                egg_link_path = os.path.join(site_packages_dir, entry)
+                egg_link_path = site_packages_path / entry
                 try:
                     with open(egg_link_path) as f:
                         path = f.readline().strip()
-                        if path and os.path.exists(path) and os.path.isdir(path):
-                            paths.append(os.path.abspath(path))
+                        if path:
+                            path_obj = Path(path)
+                            if path_obj.exists() and path_obj.is_dir():
+                                paths.append(str(path_obj.resolve()))
                 except OSError:
                     pass
     except (OSError, PermissionError):
@@ -144,8 +151,9 @@ def detect_editable_installs_via_metadata() -> set[str]:
                             url = direct_url.get("url", "")
                             if url.startswith("file://"):
                                 path = url[7:]  # Remove 'file://'
-                                if os.path.exists(path):
-                                    editable_paths.add(os.path.abspath(path))
+                                path_obj = Path(path)
+                                if path_obj.exists():
+                                    editable_paths.add(str(path_obj.resolve()))
             except (FileNotFoundError, json.JSONDecodeError, AttributeError):
                 continue
     except ImportError:
@@ -209,7 +217,7 @@ def process_all_pth_files(force: bool = False, verbose: bool = True) -> PthProce
             all_paths.extend(paths)
             if logger and paths:
                 with logger.indent():
-                    logger.info(f"Found {len(paths)} path(s) in {os.path.basename(pth_file)}")
+                    logger.info(f"Found {len(paths)} path(s) in {Path(pth_file).name}")
 
         # Also check for .egg-link files
         egg_paths = find_egg_link_paths(site_dir)

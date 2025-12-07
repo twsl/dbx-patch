@@ -278,7 +278,7 @@ python dbx-patch/test_dbx_patch.py
 
 Total Lines of Code: ~1,900 lines
 - Core implementation: ~1,100 lines
-- Documentation: ~575 lines  
+- Documentation: ~575 lines
 - Tests: ~340 lines
 - Examples: ~300 lines
 

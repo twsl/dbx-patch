@@ -137,8 +137,8 @@ Upload to DBFS and install from there:
 databricks fs cp -r ./dbx-patch dbfs:/FileStore/packages/dbx-patch
 
 # Or from workspace
-dbutils.fs.cp("/Workspace/Repos/your-repo/dbx-lib/databricks/python_shell/lib/dbx-patch", 
-              "dbfs:/FileStore/packages/dbx-patch", 
+dbutils.fs.cp("/Workspace/Repos/your-repo/dbx-lib/databricks/python_shell/lib/dbx-patch",
+              "dbfs:/FileStore/packages/dbx-patch",
               recurse=True)
 ```
 
@@ -244,7 +244,7 @@ if os.path.exists("/databricks/python/lib/python3.10/site-packages/sitecustomize
 
 **Cause:** Old version cached in site-packages
 
-**Solution:** 
+**Solution:**
 ```python
 # Remove old version
 import shutil
