@@ -73,9 +73,7 @@ def patch_autoreload_hook(verbose: bool = True) -> PatchResult:
 
         editable_paths = get_editable_install_paths()
 
-        logger.info(
-            f"Patching autoreload hook to allow {len(editable_paths)} editable install path(s)..."
-        )
+        logger.info(f"Patching autoreload hook to allow {len(editable_paths)} editable install path(s)...")
 
         # Register our check function
         _REGISTERED_CHECK = _editable_path_check

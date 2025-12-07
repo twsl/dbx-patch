@@ -41,7 +41,8 @@ Python Startup (with sitecustomize.py)
      │             ├─► Patch sys_path_init
      │             ├─► Process .pth files
      │             ├─► Patch WsfsImportHook
-     │             └─► Patch PythonPathHook
+     │             ├─► Patch PythonPathHook
+     │             └─► Patch AutoreloadDiscoverabilityHook
      │
      ├─► sys_path_init (Databricks) - PATCHED
      │      └─ Auto-processes .pth files on sys.path updates
@@ -49,8 +50,11 @@ Python Startup (with sitecustomize.py)
      ├─► WsfsImportHook (Databricks) - PATCHED
      │      └─ Allows imports from editable paths
      │
-     └─► PythonPathHook (Databricks) - PATCHED
-            └─ Preserves editable paths during updates
+     ├─► PythonPathHook (Databricks) - PATCHED
+     │      └─ Preserves editable paths during updates
+     │
+     └─► AutoreloadDiscoverabilityHook (Databricks) - PATCHED
+            └─ Allowlist includes editable paths
 
 User Notebook
      │
@@ -164,6 +168,9 @@ def apply_all_patches(verbose=True, force_refresh=False):
     # Step 4: Patch PythonPathHook to preserve paths
     results['path_hook'] = patch_python_path_hook(verbose=verbose)
 
+    # Step 5: Patch AutoreloadDiscoverabilityHook to allow editable imports
+    results['autoreload_hook'] = patch_autoreload_hook(verbose=verbose)
+
     return results
 ```
 
@@ -173,6 +180,7 @@ def apply_all_patches(verbose=True, force_refresh=False):
 2. **Process .pth files** - Adds editable paths to sys.path immediately
 3. **WsfsImportHook** - Allows imports from those paths
 4. **PythonPathHook** - Prevents paths from being lost during notebook/directory changes
+5. **AutoreloadDiscoverabilityHook** - Allows imports at the builtins.**import** level
 
 ### 3. pth_processor.py
 
@@ -464,11 +472,97 @@ def patch_python_path_hook(verbose=True):
 
 Databricks' PythonPathHook modifies sys.path when changing notebooks or directories. Without this patch, editable paths are lost during these transitions.
 
+### 6. autoreload_hook_patch.py
+
+**Purpose:** Patches `AutoreloadDiscoverabilityHook` to allow imports from editable install paths
+
+**The Problem:**
+
+The `AutoreloadDiscoverabilityHook` wraps `builtins.__import__` and maintains an allowlist of paths allowed for imports. By default, only `/Workspace` paths are allowed. When Python tries to import an editable package from a non-allowlisted path, the import is blocked even if the path is in sys.path.
+
+**Error Example:**
+
+```python
+File /databricks/python_shell/lib/dbruntime/autoreload/discoverability/hook.py:71
+ModuleNotFoundError: No module named 'my_editable_package'
+```
+
+This occurs even after applying other patches because the autoreload hook intercepts the import at the `builtins.__import__` level.
+
+**Databricks Code:**
+
+In `/databricks/python_shell/lib/dbruntime/autoreload/file_module_utils.py`:
+
+```python
+_AUTORELOAD_ALLOWLIST_CHECKS: list[Callable[[str], bool]] = [
+    lambda fname: fname.startswith("/Workspace"),
+]
+
+def register_autoreload_allowlist_check(check: Callable[[str], bool]) -> None:
+    _AUTORELOAD_ALLOWLIST_CHECKS.append(check)
+```
+
+**Features:**
+
+- Registers an allowlist check for editable install paths
+- Dynamically detects editable paths using existing pth_processor
+- Gracefully handles non-Databricks environments
+- Works with autoreload's import interception
+
+**Key Functions:**
+
+- `patch_autoreload_hook(verbose=True)` - Register allowlist check
+- `unpatch_autoreload_hook(verbose=True)` - Deregister check
+- `is_patched()` - Check if patched
+
+**Implementation:**
+
+```python
+def _editable_path_check(fname: str) -> bool:
+    """Check if a file path is within an editable install directory."""
+    if not fname:
+        return False
+
+    from dbx_patch.pth_processor import get_editable_install_paths
+    editable_paths = get_editable_install_paths()
+
+    # Check if the file is under any editable install path
+    return any(fname.startswith(editable_path) for editable_path in editable_paths)
+
+def patch_autoreload_hook(verbose=True):
+    try:
+        from dbruntime.autoreload.file_module_utils import (
+            register_autoreload_allowlist_check,
+        )
+    except ImportError:
+        return {'success': False, 'reason': 'not_in_databricks'}
+
+    # Register our check function
+    register_autoreload_allowlist_check(_editable_path_check)
+
+    return {'success': True}
+```
+
+**How It Works:**
+
+1. Detects all editable install paths (from .pth files, .egg-link, etc.)
+2. Registers a custom allowlist check with Databricks' autoreload system
+3. When Python tries to import a module:
+   - Autoreload hook intercepts at `builtins.__import__`
+   - Gets the module's file path
+   - Runs all registered allowlist checks (including ours)
+   - If our check returns True (file is in an editable path), allows the import
+   - Otherwise, continues with standard checks
+
+**Why This Patch Matters:**
+
+Without this patch, the autoreload hook blocks imports from editable paths even when all other patches are applied. This is the final layer of import interception that needs to be addressed for complete editable install support.
+
 ---
 
 ## Problem Analysis
 
-Databricks runtime has 4 critical issues preventing editable installs:
+Databricks runtime has 5 critical issues preventing editable installs:
 
 ### Issue #1: Timing - Databricks loads before notebook code
 
@@ -565,6 +659,42 @@ def patched_handle_sys_path_maybe_updated(self):
         if editable_path not in sys.path:
             sys.path.append(editable_path)  # NEW
 ```
+
+### Issue #5: AutoreloadDiscoverabilityHook blocks editable imports
+
+**Location:** `autoreload/discoverability/hook.py`, `autoreload/file_module_utils.py`
+
+**Problem:** Wraps `builtins.__import__` with an allowlist check. Only allows imports from approved paths (default: `/Workspace`). Even if all other patches are applied, this hook can still block editable imports.
+
+**Import flow:**
+
+```
+import statement → builtins.__import__ (wrapped) → check allowlist → block if not allowed ❌
+```
+
+**Symptoms:**
+
+```python
+ModuleNotFoundError: No module named 'my_editable_package'
+# Even though:
+# - Package path is in sys.path
+# - WsfsImportHook is patched
+# - PythonPathHook is patched
+```
+
+**Our Fix:** Register an allowlist check for editable paths:
+
+```python
+from dbruntime.autoreload.file_module_utils import register_autoreload_allowlist_check
+
+def _editable_path_check(fname: str) -> bool:
+    editable_paths = get_editable_install_paths()
+    return any(fname.startswith(path) for path in editable_paths)
+
+register_autoreload_allowlist_check(_editable_path_check)  # NEW
+```
+
+This is the **final layer** of import interception that must be addressed for complete editable install support.
 
 ---
 
@@ -745,6 +875,12 @@ verify_editable_installs()
 - `refresh_editable_paths()` - Refresh cached paths
 - `is_patched()` - Check if patched
 - `detect_editable_paths()` - Get current editable paths
+
+**autoreload_hook_patch.py:**
+
+- `patch_autoreload_hook(verbose=True)` - Register allowlist check for editable paths
+- `unpatch_autoreload_hook(verbose=True)` - Deregister allowlist check
+- `is_patched()` - Check if patched
 
 **install_sitecustomize.py:**
 
