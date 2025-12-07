@@ -10,12 +10,13 @@ lost during these updates.
 
 from collections.abc import Callable
 import sys
+from typing import Any
 
 from dbx_patch.models import PatchResult
 from dbx_patch.utils.logger import get_logger
 
 _PATCH_APPLIED = False
-_ORIGINAL_HANDLE_SYS_PATH = None
+_ORIGINAL_HANDLE_SYS_PATH: Callable[..., None] | None = None
 _EDITABLE_PATHS: set[str] = set()
 
 
@@ -41,7 +42,7 @@ def refresh_editable_paths() -> int:
     return len(_EDITABLE_PATHS)
 
 
-def create_patched_handle_sys_path(original_method) -> Callable[..., None]:
+def create_patched_handle_sys_path(original_method: Callable[..., None]) -> Callable[..., None]:
     """Create a patched version of PythonPathHook._handle_sys_path_maybe_updated.
 
     That preserves editable install paths.
@@ -53,7 +54,7 @@ def create_patched_handle_sys_path(original_method) -> Callable[..., None]:
         Patched method that preserves editable paths
     """
 
-    def patched_handle_sys_path_maybe_updated(self) -> None:
+    def patched_handle_sys_path_maybe_updated(self: Any) -> None:
         # Call original method first
         original_method(self)
 
@@ -110,6 +111,16 @@ def patch_python_path_hook(verbose: bool = True) -> PatchResult:
 
         # Save original method
         _ORIGINAL_HANDLE_SYS_PATH = PythonPathHook._handle_sys_path_maybe_updated
+
+        # Type narrowing check
+        if _ORIGINAL_HANDLE_SYS_PATH is None:
+            if logger:
+                logger.error("Failed to save original method")
+            return PatchResult(
+                success=False,
+                already_patched=False,
+                hook_found=True,
+            )
 
         # Create and apply patch
         patched_method = create_patched_handle_sys_path(_ORIGINAL_HANDLE_SYS_PATH)

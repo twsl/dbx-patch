@@ -8,15 +8,16 @@ hooks into Databricks' existing sys.path initialization logic.
 """
 
 from collections.abc import Callable
+from typing import Any
 
 from dbx_patch.models import PatchResult
 from dbx_patch.utils.logger import get_logger
 
 _PATCH_APPLIED = False
-_ORIGINAL_PATCH_SYS_PATH = None
+_ORIGINAL_PATCH_SYS_PATH: Callable[[], None] | None = None
 
 
-def create_patched_patch_sys_path(original_function) -> Callable[[], None]:
+def create_patched_patch_sys_path(original_function: Callable[[], None]) -> Callable[[], None]:
     """Create a patched version of patch_sys_path.
 
     With_developer_paths that also processes .pth files for editable installs.
@@ -87,6 +88,16 @@ def patch_sys_path_init(verbose: bool = True) -> PatchResult:
 
         # Save original function
         _ORIGINAL_PATCH_SYS_PATH = sys_path_init.patch_sys_path_with_developer_paths
+
+        # Type narrowing check
+        if _ORIGINAL_PATCH_SYS_PATH is None:
+            if logger:
+                logger.error("Failed to save original function")
+            return PatchResult(
+                success=False,
+                already_patched=False,
+                function_found=True,
+            )
 
         # Create and apply patch
         patched_function = create_patched_patch_sys_path(_ORIGINAL_PATCH_SYS_PATH)

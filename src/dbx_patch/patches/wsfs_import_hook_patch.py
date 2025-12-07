@@ -14,12 +14,13 @@ from .pth files and .egg-link files.
 
 from collections.abc import Callable
 import inspect
+from typing import Any
 
 from dbx_patch.models import PatchResult
 from dbx_patch.utils.logger import get_logger
 
 _PATCH_APPLIED = False
-_ORIGINAL_IS_USER_IMPORT = None
+_ORIGINAL_IS_USER_IMPORT: Callable[..., bool] | None = None
 _EDITABLE_PATHS: set[str] = set()
 
 
@@ -47,7 +48,7 @@ def refresh_editable_paths() -> int:
     return len(_EDITABLE_PATHS)
 
 
-def create_patched_is_user_import(original_method) -> Callable[..., bool]:
+def create_patched_is_user_import(original_method: Callable[..., bool]) -> Callable[..., bool]:
     """Create a patched version of WsfsImportHook.__is_user_import that allows editable installs.
 
     Args:
@@ -57,7 +58,7 @@ def create_patched_is_user_import(original_method) -> Callable[..., bool]:
         Patched method that includes editable path checking
     """
 
-    def patched_is_user_import(self) -> bool:
+    def patched_is_user_import(self: Any) -> bool:
         try:
             f = inspect.currentframe()
             num_items_processed = 0
@@ -138,6 +139,19 @@ def patch_wsfs_import_hook(verbose: bool = True) -> PatchResult:
 
         # Save original method
         _ORIGINAL_IS_USER_IMPORT = WsfsImportHook._WsfsImportHook__is_user_import
+
+        # Type narrowing check
+        if _ORIGINAL_IS_USER_IMPORT is None:
+            if logger:
+                logger.error("Failed to save original method")
+            return PatchResult(
+                success=False,
+                already_patched=False,
+                editable_paths_count=0,
+                editable_paths=[],
+                hook_found=True,
+                error="Failed to save original method",
+            )
 
         # Create and apply patch
         patched_method = create_patched_is_user_import(_ORIGINAL_IS_USER_IMPORT)
