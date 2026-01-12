@@ -472,14 +472,14 @@ test = ["pytest"]
 
 [[package]]
 name = "copier"
-version = "9.11.0"
+version = "9.11.1"
 description = "A library for rendering project templates."
 optional = false
 python-versions = ">=3.10"
 groups = ["dev"]
 files = [
-    {file = "copier-9.11.0-py3-none-any.whl", hash = "sha256:628adac090f7b333bb64bf5cab03456b99971a77e4d5b2b979e30b8451cbda9d"},
-    {file = "copier-9.11.0.tar.gz", hash = "sha256:e73d6989fa140b621a5c571984c46122704086a9caa84a6e07699a5234d297ab"},
+    {file = "copier-9.11.1-py3-none-any.whl", hash = "sha256:e23c4b3c0c1687c519d8ae62496507164cc482b96af9e3ea7851ce02b64eb978"},
+    {file = "copier-9.11.1.tar.gz", hash = "sha256:50e5a39b7dde94ad7a3b66b5a64070359df532c13d64dabb89dde81f7c7347eb"},
 ]
 
 [package.dependencies]
@@ -3212,4 +3212,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "5db06f090171af10e01b23e90dcf53798621bbd5d0930b6f7bac3da91a496379"
+content-hash = "2ceb25bd65f041ece983508bde1188ccb69dd99708a7d5689126eb55c124dc80"
