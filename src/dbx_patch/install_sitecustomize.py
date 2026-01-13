@@ -66,10 +66,10 @@ def _apply_dbx_patch() -> None:
     try:
         # Import and apply all patches
         from dbx_patch import apply_all_patches
-        
+
         # Apply silently (no output to avoid cluttering startup)
         apply_all_patches(verbose=False, force_refresh=False)
-        
+
     except ImportError:
         # dbx-patch not installed, skip silently
         pass
@@ -155,20 +155,13 @@ def install_sitecustomize(verbose: bool = True, force: bool = False, restart_pyt
 
                 try:
                     # Try to access dbutils (available in Databricks notebooks)
-                    # dbutils is injected into the global namespace in Databricks
-                    import builtins
-
-                    dbutils = getattr(builtins, "dbutils", None)
-
-                    dbutils_library = getattr(dbutils, "library", None) if dbutils is not None else None
-
-                    if dbutils_library is not None:
+                    # dbutils is injected by Databricks and available as a variable
+                    try:
                         logger.info("Restarting Python kernel via dbutils.library.restartPython()...")
 
-                        dbutils_library.restartPython()  # This will restart the kernel
-                        # Code after this line won't execute as the kernel restarts
+                        dbutils.library.restartPython()  # pyright: ignore[reportUndefinedVariable]  # noqa: F821
 
-                    else:
+                    except Exception:
                         # Not in Databricks environment
                         logger.blank()
                         logger.warning("Not running in Databricks environment")
@@ -198,7 +191,7 @@ def install_sitecustomize(verbose: bool = True, force: bool = False, restart_pyt
             return True
 
         except OSError as e:
-            logger.error(f"Failed to write sitecustomize.py: {e}")
+            logger.error(f"Failed to write sitecustomize.py: {e}")  # noqa: TRY400
             return False
 
 
@@ -235,7 +228,7 @@ def uninstall_sitecustomize(verbose: bool = True) -> bool:
                     logger.info("Manual removal required if needed")
                 return False
         except OSError as e:
-            logger.error(f"Failed to read sitecustomize.py: {e}")
+            logger.error(f"Failed to read sitecustomize.py: {e}")  # noqa: TRY400
             return False
 
         # Remove the file
@@ -252,7 +245,7 @@ def uninstall_sitecustomize(verbose: bool = True) -> bool:
             return True
 
         except OSError as e:
-            logger.error(f"Failed to remove sitecustomize.py: {e}")
+            logger.error(f"Failed to remove sitecustomize.py: {e}")  # noqa: TRY400
             return False
 
 

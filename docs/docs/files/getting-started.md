@@ -235,6 +235,51 @@ from dbx_patch import verify_editable_installs
 verify_editable_installs()
 ```
 
+### Issue: Need detailed debug information
+
+**Solution:** Enable debug mode with environment variables
+
+DBX-Patch supports two environment variables for controlling output:
+
+- **`DBX_PATCH_DEBUG`**: Enable detailed trace logging of all patch operations (writes to stderr)
+- **`DBX_PATCH_VERBOSE`**: Enable verbose informational logging (writes to stdout)
+
+```python
+import os
+
+# Enable debug mode to see all patch operations
+os.environ["DBX_PATCH_DEBUG"] = "1"
+
+# Or enable verbose mode for informational output
+os.environ["DBX_PATCH_VERBOSE"] = "1"
+
+# Now apply patches - you'll see detailed trace information
+from dbx_patch import apply_all_patches
+apply_all_patches()
+```
+
+**Debug output includes:**
+
+- When each patched function is called
+- Which editable paths are detected
+- Import attempts and their results
+- Path additions/removals from sys.path
+- Matching decisions for import hooks
+
+**Example debug output:**
+
+```
+[dbx-patch] apply_all_patches() called
+[dbx-patch] verbose=True, force_refresh=False
+[dbx-patch] get_editable_install_paths() called
+[dbx-patch] Processing .pth file: /path/to/site-packages/__editable__.my_package.pth
+[dbx-patch] Found editable path in .pth: /Workspace/Repos/my-repo/my-package
+[dbx-patch] WsfsImportHook.__is_user_import called (PATCHED)
+[dbx-patch] WsfsImportHook: Allowing import from editable path: /Workspace/Repos/my-repo/my-package/my_module.py
+```
+
+**Note:** Debug logging is sent to stderr to avoid cluttering normal output and can be quite verbose. Use it when diagnosing issues with imports or patch application.
+
 ---
 
 ## Advanced Usage

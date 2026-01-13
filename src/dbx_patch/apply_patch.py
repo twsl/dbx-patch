@@ -25,13 +25,15 @@ def apply_all_patches(verbose: bool = True, force_refresh: bool = False) -> Appl
     5. Patch AutoreloadDiscoverabilityHook to allow editable imports
 
     Args:
-        verbose: If True, print detailed status messages
+        verbose: If True, print detailed status messages (overridden by DBX_PATCH_VERBOSE env var)
         force_refresh: If True, force re-detection of editable paths
 
     Returns:
         ApplyPatchesResult with complete operation details
     """
     logger = PatchLogger(verbose=verbose)
+    logger.debug_info("apply_all_patches() called")
+    logger.debug_info(f"verbose={verbose}, force_refresh={force_refresh}")
 
     with logger.section("DBX-Patch: Applying patches for editable install support"):
         sys_path_init_result = None

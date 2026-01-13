@@ -12,11 +12,15 @@
 [![Copier](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/copier-org/copier/master/img/badge/badge-grayscale-border.json)](https://github.com/copier-org/copier)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-Patchception: A library to patch the Databricks patching of Python
+Patchception: A library to patch the Databricks patching of Python to enable editable package installs.
 
 ## Features
 
-- `...`
+- ✅ Enables editable Python package installs (`pip install -e .`) in Databricks notebooks
+- ✅ Patches Databricks' custom import system to allow workspace directory imports
+- ✅ Automatic patch application via `sitecustomize.py` (recommended)
+- ✅ Manual patching via `patch_dbx()` for immediate use
+- ✅ Debug mode with `DBX_PATCH_DEBUG` environment variable for troubleshooting
 
 ## Installation
 
@@ -32,52 +36,40 @@ With [`poetry`](https://python-poetry.org/):
 poetry add dbx-patch
 ```
 
-## How to use it
+## Quick Start
 
-### ⚡ The ONLY Working Solution: sitecustomize.py
+### 🚀 Recommended: One-Command Setup
 
-Due to **critical timing issues**, you **must** use `sitecustomize.py` to make editable installs work in Databricks.
+The simplest way to get started - patches current session AND installs automatic patching:
+
+```python
+from dbx_patch import patch_and_install
+patch_and_install()
+# Patches applied + sitecustomize.py installed
+# Python will restart automatically in Databricks!
+```
+
+### ⚡ Manual Patching (Current Session Only)
+
+If you only want to patch the current Python session without persistence:
+
+```python
+from dbx_patch import patch_dbx
+patch_dbx()
+# Editable installs now work in this session!
+```
+
+### 🔧 Automatic Patching (Persistent)
+
+For permanent solution that works across all Python restarts:
 
 ```python
 # Run ONCE per cluster (e.g., in init script or setup notebook)
 from dbx_patch import install_sitecustomize
 install_sitecustomize()
-
 # Python will restart automatically in Databricks!
-# After restart, editable installs work automatically!
+# After restart, patches are applied automatically on every Python startup
 ```
-
-**After installation:**
-
-```python
-# No manual patching needed - just import!
-import my_editable_package  # ✅ Works automatically
-```
-
----
-
-### 🚫 Why Manual Patching DOESN'T Work
-
-Calling `apply_all_patches()` manually **does not work** due to fundamental timing issues:
-
-#### The Problem: Python Startup Sequence
-
-1. **Python interpreter starts** → Databricks code runs **immediately**
-2. **Databricks loads `sys_path_init.py`** → Removes editable install paths from `sys.path`
-3. **Databricks installs `WsfsImportHook`** → Blocks imports from `/Workspace` directories
-4. **Your notebook code runs** → ❌ **Too late!** The damage is already done
-
-#### Why `apply_all_patches()` Fails
-
-```python
-# ❌ This DOES NOT WORK
-from dbx_patch import apply_all_patches
-apply_all_patches()  # Already too late - sys_path_init already ran!
-
-import my_package  # ❌ Still fails - paths were removed at startup
-```
-
-**The timing issue:**
 
 - `sys_path_init.py` runs **during Python interpreter initialization**
 - Your notebook code runs **after initialization completes**

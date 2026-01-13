@@ -70,6 +70,10 @@ def process_pth_file(pth_file_path: str) -> list[str]:
     Returns:
         List of absolute directory paths found in the file
     """
+    # Avoid calling logger to prevent import loops during patch initialization
+    if os.environ.get("DBX_PATCH_DEBUG"):
+        print(f"[dbx-patch] Processing .pth file: {pth_file_path}", file=sys.stderr)
+
     paths = []
     try:
         with open(pth_file_path, encoding="utf-8") as f:
@@ -94,8 +98,13 @@ def process_pth_file(pth_file_path: str) -> list[str]:
 
                 if abs_path.exists() and abs_path.is_dir():
                     paths.append(str(abs_path))
+                    if os.environ.get("DBX_PATCH_DEBUG"):
+                        print(f"[dbx-patch] Found editable path in .pth: {abs_path}", file=sys.stderr)
     except (OSError, UnicodeDecodeError) as e:
         get_logger().warning(f"Could not process {pth_file_path}: {e}")
+
+    if os.environ.get("DBX_PATCH_DEBUG"):
+        print(f"[dbx-patch] Total paths from {pth_file_path}: {len(paths)}", file=sys.stderr)
 
     return paths
 
@@ -172,6 +181,10 @@ def add_paths_to_sys_path(paths: list[str], prepend: bool = False) -> int:
     Returns:
         Number of paths actually added
     """
+    # Avoid calling logger to prevent import loops
+    if os.environ.get("DBX_PATCH_DEBUG"):
+        print(f"[dbx-patch] Adding {len(paths)} path(s) to sys.path (prepend={prepend})", file=sys.stderr)
+
     added_count = 0
     existing_paths = set(sys.path)
 
@@ -182,6 +195,10 @@ def add_paths_to_sys_path(paths: list[str], prepend: bool = False) -> int:
             else:
                 sys.path.append(path)
             added_count += 1
+            if os.environ.get("DBX_PATCH_DEBUG"):
+                print(f"[dbx-patch] Added to sys.path: {path}", file=sys.stderr)
+        elif os.environ.get("DBX_PATCH_DEBUG"):
+            print(f"[dbx-patch] Already in sys.path: {path}", file=sys.stderr)
 
     return added_count
 
@@ -272,6 +289,10 @@ def get_editable_install_paths() -> set[str]:
     Returns:
         Set of absolute paths to editable install directories
     """
+    # Avoid calling logger to prevent import loops
+    if os.environ.get("DBX_PATCH_DEBUG"):
+        print("[dbx-patch] get_editable_install_paths() called", file=sys.stderr)
+
     all_paths = set()
 
     # From .pth files
@@ -282,5 +303,10 @@ def get_editable_install_paths() -> set[str]:
 
     # From metadata
     all_paths.update(detect_editable_installs_via_metadata())
+
+    if os.environ.get("DBX_PATCH_DEBUG"):
+        print(f"[dbx-patch] get_editable_install_paths() returning {len(all_paths)} path(s)", file=sys.stderr)
+        for path in sorted(all_paths):
+            print(f"[dbx-patch]   - {path}", file=sys.stderr)
 
     return all_paths

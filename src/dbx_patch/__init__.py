@@ -19,6 +19,7 @@ from dbx_patch.models import (
     StatusResult,
     VerifyResult,
 )
+from dbx_patch.patch_dbx import patch_and_install, patch_dbx
 
 __all__ = [
     "__version__",
@@ -30,6 +31,8 @@ __all__ = [
     "install_sitecustomize",
     "uninstall_sitecustomize",
     "check_sitecustomize_status",
+    "patch_dbx",
+    "patch_and_install",
     "ApplyPatchesResult",
     "PatchResult",
     "PthProcessingResult",

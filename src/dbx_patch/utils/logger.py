@@ -5,6 +5,7 @@ Provides structured logging with context managers for separator formatting.
 
 from collections.abc import Generator
 from contextlib import contextmanager
+import os
 import sys
 from typing import Any, Self, TextIO
 
@@ -17,9 +18,16 @@ class PatchLogger:
 
         Args:
             verbose: If True, output messages. If False, suppress most output.
-            output: Output stream (default: sys.stdout)
+                    Can be overridden by DBX_PATCH_DEBUG or DBX_PATCH_VERBOSE env vars.
+            output: Output stream (default: sys.stdout for info/success, sys.stderr for debug)
         """
-        self.verbose = verbose
+        # Check environment variables
+        env_debug = os.environ.get("DBX_PATCH_DEBUG", "").lower() in ("1", "true", "yes")
+        env_verbose = os.environ.get("DBX_PATCH_VERBOSE", "").lower() in ("1", "true", "yes")
+
+        # Environment variables override the verbose parameter
+        self.verbose = env_verbose or verbose
+        self.debug_enabled = env_debug
         self.output = output or sys.stdout
         self._indent_level = 0
         self._indent_char = "  "
@@ -55,6 +63,15 @@ class PatchLogger:
         """Log a debug message (only if verbose)."""
         if self.verbose:
             self._write(f"🔍 {message}")
+
+    def debug_info(self, message: str) -> None:
+        """Log a debug trace message (only if DBX_PATCH_DEBUG is enabled).
+
+        These messages are sent to stderr to avoid cluttering normal output.
+        """
+        if self.debug_enabled:
+            indent = self._indent_char * self._indent_level
+            print(f"{indent}[dbx-patch] {message}", file=sys.stderr)
 
     def separator(self, char: str = "-", length: int = 70) -> None:
         """Print a separator line."""
@@ -138,14 +155,16 @@ def get_logger(verbose: bool = True) -> PatchLogger:
     """Get the default logger instance, creating it if necessary.
 
     Args:
-        verbose: Verbosity setting for new logger
+        verbose: Verbosity setting for new logger (can be overridden by env vars)
 
     Returns:
         PatchLogger instance
     """
     global _default_logger
     if _default_logger is None:
-        _default_logger = PatchLogger(verbose=verbose)
+        # Environment variables take precedence
+        env_verbose = os.environ.get("DBX_PATCH_VERBOSE", "").lower() in ("1", "true", "yes")
+        _default_logger = PatchLogger(verbose=env_verbose or verbose)
     return _default_logger
 
 

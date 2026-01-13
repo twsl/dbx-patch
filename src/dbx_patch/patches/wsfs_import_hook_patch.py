@@ -59,6 +59,14 @@ def create_patched_is_user_import(original_method: Callable[..., bool]) -> Calla
     """
 
     def patched_is_user_import(self: Any) -> bool:
+        # Avoid calling get_logger() here to prevent import loops
+        import os
+
+        if os.environ.get("DBX_PATCH_DEBUG"):
+            import sys
+
+            print("[dbx-patch] WsfsImportHook.__is_user_import called (PATCHED)", file=sys.stderr)
+
         try:
             f = inspect.currentframe()
             num_items_processed = 0
@@ -79,6 +87,12 @@ def create_patched_is_user_import(original_method: Callable[..., bool]) -> Calla
                 if _EDITABLE_PATHS:
                     is_editable_path = any(filename.startswith(editable_path) for editable_path in _EDITABLE_PATHS)
                     if is_editable_path:
+                        if os.environ.get("DBX_PATCH_DEBUG"):
+                            matching = [p for p in _EDITABLE_PATHS if filename.startswith(p)]
+                            print(
+                                f"[dbx-patch] WsfsImportHook: Allowing import from editable path: {filename} (matched: {matching[0] if matching else 'unknown'})",
+                                file=sys.stderr,
+                            )
                         return True
 
                 # Check if from site-packages (existing behavior)
