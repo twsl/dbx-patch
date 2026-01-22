@@ -1,4 +1,4 @@
-from dbx_patch.__about__ import __version__, __version_tuple__
+from dbx_patch.__about__ import __version__
 from dbx_patch.apply_patch import (
     apply_all_patches,
     check_patch_status,
@@ -23,7 +23,6 @@ from dbx_patch.patch_dbx import patch_and_install, patch_dbx
 
 __all__ = [
     "__version__",
-    "__version_tuple__",
     "apply_all_patches",
     "check_patch_status",
     "remove_all_patches",

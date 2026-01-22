@@ -6,8 +6,6 @@ copyright: Copyright &copy; 2025 twsl
 
 nav:
   - Home: index.md
-  - Getting Started: files/getting-started.md
-  - Technical Implementation: files/implementation.md
   - API: $api/dbx_patch.***
   - Examples: notebooks/index.md
 
@@ -117,4 +115,4 @@ markdown_extensions:
       custom_checkbox: true
   - pymdownx.tilde
   - pymdownx.snippets:
-      base_path: !relative $config_dir/../ # Relative to the root directory ($config_dir is where mkdocs.yml is located)
+      base_path: !relative $config_dir/ # Relative to the root directory ($config_dir is where mkdocs.yml is located)
