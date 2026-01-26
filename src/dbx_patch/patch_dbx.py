@@ -113,6 +113,34 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
 
                 logger.debug_info(f"Traceback: {traceback.format_exc()}")
 
+        # Step 6: Verify WsfsPathFinder (optional verification)
+        wsfs_path_finder_result = None
+        with logger.subsection("Step 6: Verifying WsfsPathFinder compatibility..."):
+            try:
+                from dbx_patch.patches.wsfs_path_finder_patch import patch_wsfs_path_finder
+
+                wsfs_path_finder_result = patch_wsfs_path_finder(verbose=verbose)
+
+            except Exception as e:
+                logger.error(f"Failed to verify WsfsPathFinder: {e}")
+                import traceback
+
+                logger.debug_info(f"Traceback: {traceback.format_exc()}")
+
+        # Step 7: Verify PostImportHook (optional verification)
+        post_import_hook_result = None
+        with logger.subsection("Step 7: Verifying PostImportHook compatibility..."):
+            try:
+                from dbx_patch.patches.post_import_hook_verify import verify_post_import_hook
+
+                post_import_hook_result = verify_post_import_hook(verbose=verbose)
+
+            except Exception as e:
+                logger.error(f"Failed to verify PostImportHook: {e}")
+                import traceback
+
+                logger.debug_info(f"Traceback: {traceback.format_exc()}")
+
         # Collect all editable paths
         all_paths = set()
         if pth_result:
@@ -124,7 +152,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
 
         # Summary
         logger.blank()
-        patches_applied = sum(
+        core_patches_applied = sum(
             [
                 1 if sys_path_init_result and sys_path_init_result.success else 0,
                 1 if wsfs_result and wsfs_result.success else 0,
@@ -133,8 +161,17 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
             ]
         )
 
-        if patches_applied > 0:
-            logger.success(f"Applied {patches_applied}/4 patches successfully!")
+        verifications_passed = sum(
+            [
+                1 if wsfs_path_finder_result and wsfs_path_finder_result.success else 0,
+                1 if post_import_hook_result and post_import_hook_result.success else 0,
+            ]
+        )
+
+        if core_patches_applied > 0:
+            logger.success(f"Applied {core_patches_applied}/4 core patches successfully!")
+            if verifications_passed > 0:
+                logger.info(f"Verified {verifications_passed}/2 additional hooks are compatible")
         else:
             logger.warning("No patches were applied successfully")
 
