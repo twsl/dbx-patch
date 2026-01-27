@@ -1,7 +1,8 @@
 """Main DBX-Patch Entry Point.
 
 This module provides a single, comprehensive method to patch Databricks runtime
-for editable install support.
+for editable install support. Supports both legacy (< 18.0) and modern (>= 18.0)
+Databricks runtime versions.
 """
 
 import sys
@@ -9,6 +10,7 @@ from typing import Any
 
 from dbx_patch.models import ApplyPatchesResult
 from dbx_patch.utils.logger import PatchLogger
+from dbx_patch.utils.runtime_version import get_runtime_version_info
 
 
 def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatchesResult:
@@ -39,6 +41,17 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
     logger = PatchLogger(verbose=verbose)
     logger.debug_info("patch_dbx() called")
     logger.debug_info(f"verbose={verbose}, force_refresh={force_refresh}")
+
+    # Display runtime version info
+    version_info = get_runtime_version_info()
+    if version_info["is_databricks"]:
+        logger.debug_info(f"Databricks Runtime Version: {version_info['raw']}")
+        logger.debug_info(
+            f"Using patches for DBR {'>=18.0' if version_info['major'] and version_info['major'] >= 18 else '<18.0'}"
+        )
+    else:
+        logger.debug_info("Not running in Databricks (or version detection failed)")
+        logger.debug_info("Assuming modern runtime (>=18.0) for local testing")
 
     with logger.section("DBX-Patch: Enabling editable install support"):
         sys_path_init_result = None
@@ -75,14 +88,14 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
                 logger.debug_info(f"Traceback: {traceback.format_exc()}")
 
         # Step 3: Patch WsfsImportHook (import hook for workspace files)
-        with logger.subsection("Step 3: Patching WsfsImportHook..."):
+        with logger.subsection("Step 3: Patching Workspace Import Machinery..."):
             try:
                 from dbx_patch.patches.wsfs_import_hook_patch import patch_wsfs_import_hook
 
                 wsfs_result = patch_wsfs_import_hook(verbose=verbose)
 
             except Exception as e:
-                logger.error(f"Failed to patch WsfsImportHook: {e}")
+                logger.error(f"Failed to patch workspace import machinery: {e}")
                 import traceback
 
                 logger.debug_info(f"Traceback: {traceback.format_exc()}")
@@ -115,14 +128,14 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
 
         # Step 6: Verify WsfsPathFinder (optional verification)
         wsfs_path_finder_result = None
-        with logger.subsection("Step 6: Verifying WsfsPathFinder compatibility..."):
+        with logger.subsection("Step 6: Verifying Workspace PathFinder compatibility..."):
             try:
                 from dbx_patch.patches.wsfs_path_finder_patch import patch_wsfs_path_finder
 
                 wsfs_path_finder_result = patch_wsfs_path_finder(verbose=verbose)
 
             except Exception as e:
-                logger.error(f"Failed to verify WsfsPathFinder: {e}")
+                logger.error(f"Failed to verify workspace path finder: {e}")
                 import traceback
 
                 logger.debug_info(f"Traceback: {traceback.format_exc()}")
@@ -185,7 +198,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
             with logger.indent():
                 logger.info("Make sure you've installed packages with 'pip install -e .'")
 
-        overall_success = patches_applied > 0 and len(all_paths) > 0
+        overall_success = core_patches_applied > 0 and len(all_paths) > 0
 
         return ApplyPatchesResult(
             sys_path_init_patch=sys_path_init_result,

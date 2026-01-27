@@ -32,6 +32,11 @@ documentation = "https://twsl.github.io/dbx-patch/"
 
 [tool.uv]
 default-groups = "all"
+
+[tool.uv.workspace]
+members = [
+    "test_package",
+]
 # default-groups = [
 #     "dev",
 #     "test",
