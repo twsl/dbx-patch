@@ -67,10 +67,10 @@ def _apply_dbx_patch() -> None:
     \"\"\"Apply dbx-patch fixes silently during startup.\"\"\"
     try:
         # Import and apply all patches
-        from dbx_patch import apply_all_patches
+        from dbx_patch.patch_dbx import patch_dbx
 
         # Apply silently (no output to avoid cluttering startup)
-        apply_all_patches(force_refresh=False)
+        patch_dbx(force_refresh=False)
 
     except ImportError:
         # dbx-patch not installed, skip silently
@@ -91,7 +91,7 @@ def install_sitecustomize(force: bool = True, restart_python: bool = True) -> bo
     This is the RECOMMENDED way to use dbx-patch because:
     1. Patches are applied BEFORE sys_path_init runs
     2. Import hooks are patched BEFORE they're installed
-    3. No need to manually call apply_all_patches() in every notebook
+    3. No need to manually call patch_dbx() in every notebook
     4. Works automatically for all Python processes on the cluster
 
     Args:
@@ -168,7 +168,7 @@ def install_sitecustomize(force: bool = True, restart_python: bool = True) -> bo
                         with logger.indent():
                             logger.info("1. Restart your Python kernel/notebook manually")
                             logger.info("2. Editable installs will work automatically")
-                            logger.info("3. No need to call apply_all_patches() anymore!")
+                            logger.info("3. No need to call patch_dbx() anymore!")
 
                 except Exception as e:
                     # Failed to restart, provide manual instructions
@@ -178,14 +178,14 @@ def install_sitecustomize(force: bool = True, restart_python: bool = True) -> bo
                     with logger.indent():
                         logger.info("1. Restart your Python kernel/notebook manually")
                         logger.info("2. Editable installs will work automatically")
-                        logger.info("3. No need to call apply_all_patches() anymore!")
+                        logger.info("3. No need to call patch_dbx() anymore!")
             else:
                 logger.blank()
                 logger.info("Next steps:")
                 with logger.indent():
                     logger.info("1. Restart your Python kernel/notebook")
                     logger.info("2. Editable installs will work automatically")
-                    logger.info("3. No need to call apply_all_patches() anymore!")
+                    logger.info("3. No need to call patch_dbx() anymore!")
 
             return True
 

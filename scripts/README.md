@@ -141,7 +141,7 @@ from your_package import your_module
 ### Verify Everything Works
 
 ```python
-from dbx_patch.apply_patch import verify_editable_installs
+from dbx_patch.patch_dbx import verify_editable_installs
 verify_editable_installs(verbose=True)
 ```
 

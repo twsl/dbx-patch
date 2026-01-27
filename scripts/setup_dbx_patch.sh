@@ -56,7 +56,7 @@ PYTHON_SCRIPT
 # Step 4: Verify
 print_section "Step 4: Verification"
 python3 << 'PYTHON_SCRIPT'
-from dbx_patch.apply_patch import verify_editable_installs
+from dbx_patch.patch_dbx import verify_editable_installs
 
 result = verify_editable_installs(verbose=True)
 print(f"\nStatus: {result.status}")

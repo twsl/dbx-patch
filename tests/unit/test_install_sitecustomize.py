@@ -185,6 +185,6 @@ class TestInstallSitecustomize:
         # Check for required elements
         assert "dbx-patch" in content
         assert "_apply_dbx_patch" in content
-        assert "apply_all_patches" in content
+        assert "patch_dbx" in content
         assert "verbose=False" in content
         assert "force_refresh=False" in content

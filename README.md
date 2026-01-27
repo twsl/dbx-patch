@@ -73,7 +73,7 @@ install_sitecustomize()
 
 - `sys_path_init.py` runs **during Python interpreter initialization**
 - Your notebook code runs **after initialization completes**
-- By the time you call `apply_all_patches()`, the import system is already configured
+- By the time you call `patch_dbx()`, the import system is already configured
 - Editable install paths have already been removed from `sys.path`
 - Import hooks are already installed and active
 

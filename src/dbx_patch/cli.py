@@ -1,7 +1,7 @@
 import contextlib
 
 from dbx_patch.__about__ import __version__
-from dbx_patch.apply_patch import apply_all_patches, check_patch_status, remove_all_patches, verify_editable_installs
+from dbx_patch.patch_dbx import check_patch_status, patch_dbx, remove_all_patches, verify_editable_installs
 
 # Module-level logger
 _logger = None
@@ -26,10 +26,9 @@ def main() -> None:
     parser.add_argument("--quiet", action="store_true", help="Suppress output")
 
     args = parser.parse_args()
-    verbose = not args.quiet
 
     if args.apply:
-        apply_all_patches()
+        patch_dbx()
     elif args.verify:
         verify_editable_installs()
     elif args.status:
@@ -38,7 +37,7 @@ def main() -> None:
         remove_all_patches()
     else:
         # Default: apply patches
-        apply_all_patches()
+        patch_dbx()
 
 
 if __name__ == "__main__":

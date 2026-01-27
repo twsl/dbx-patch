@@ -13,7 +13,7 @@ Databricks loads `sys_path_init` and `WsfsImportHook` **during Python startup**,
 2. sys_path_init runs (skips .pth files)
 3. WsfsImportHook installs (blocks editable imports)
 4. Notebook runs
-5. apply_all_patches() ❌ Too late - import system already initialized!
+5. patch_dbx() ❌ Too late - import system already initialized!
 ```
 
 **With sitecustomize.py - WORKS:**
@@ -21,7 +21,7 @@ Databricks loads `sys_path_init` and `WsfsImportHook` **during Python startup**,
 ```
 1. Python starts
 2. sitecustomize.py runs
-3. apply_all_patches() ✅ Perfect timing!
+3. patch_dbx() ✅ Perfect timing!
 4. sys_path_init runs (already patched)
 5. WsfsImportHook installs (already patched)
 6. Notebook runs (everything works)
@@ -37,7 +37,7 @@ Databricks loads `sys_path_init` and `WsfsImportHook` **during Python startup**,
 Python Startup (with sitecustomize.py)
      │
      ├─► sitecustomize.py
-     │      └─► apply_all_patches()
+     │      └─► patch_dbx()
      │             ├─► Patch sys_path_init
      │             ├─► Process .pth files
      │             ├─► Patch WsfsImportHook
@@ -125,8 +125,8 @@ import sys
 def _apply_dbx_patch():
     """Apply dbx-patch fixes silently during startup."""
     try:
-        from dbx_patch import apply_all_patches
-        apply_all_patches(verbose=False, force_refresh=False)
+        from dbx_patch import patch_dbx
+        patch_dbx(force_refresh=False)
     except ImportError:
         pass  # dbx-patch not installed
     except Exception as e:
@@ -136,13 +136,13 @@ def _apply_dbx_patch():
 _apply_dbx_patch()
 ```
 
-### 2. apply_patch.py
+### 2. patch_dbx.py
 
 **Purpose:** Main entry point for applying all patches
 
 **Key Functions:**
 
-- `apply_all_patches(verbose=True, force_refresh=False)` - Applies all fixes
+- `patch_dbx(force_refresh=False)` - Applies all fixes
 - `verify_editable_installs(verbose=True)` - Verification
 - `check_patch_status(verbose=True)` - Status checking
 - `remove_all_patches(verbose=True)` - Cleanup/removal
@@ -150,7 +150,7 @@ _apply_dbx_patch()
 **Workflow:**
 
 ```python
-def apply_all_patches(verbose=True, force_refresh=False):
+def patch_dbx(force_refresh=False):
     results = {}
 
     # Step 1: Patch sys_path_init to auto-process .pth files
@@ -575,7 +575,7 @@ Databricks runtime has 5 critical issues preventing editable installs:
 2. Databricks sys_path_init runs
 3. Databricks WsfsImportHook installs
 4. Notebook cell 1 runs
-5. User runs: apply_all_patches()  ❌ TOO LATE!
+5. User runs: patch_dbx()  ❌ TOO LATE!
 ```
 
 **Why it fails:** The import system is already initialized with broken behavior. Patching after the fact doesn't help.
@@ -585,7 +585,7 @@ Databricks runtime has 5 critical issues preventing editable installs:
 ```
 1. Python starts
 2. sitecustomize.py runs
-3. apply_all_patches() ✅ Perfect timing!
+3. patch_dbx() ✅ Perfect timing!
 4. Databricks sys_path_init runs (already patched)
 5. Databricks WsfsImportHook installs (already patched)
 6. Notebook runs (everything works)
@@ -733,8 +733,8 @@ This makes it the **only** reliable place to patch Databricks' initialization co
 ```python
 # Cell 1: Install and try to patch
 %pip install dbx-patch
-from dbx_patch import apply_all_patches
-apply_all_patches()  # ❌ Patches applied
+from dbx_patch import patch_dbx
+patch_dbx()  # ❌ Patches applied
 
 # Cell 2: Try to import
 %pip install -e /Workspace/Repos/my-repo/my-package
@@ -811,7 +811,7 @@ verify_editable_installs()
 - Indicates if patches are active
 - Returns: `SitecustomizeStatus` dataclass
 
-**`apply_all_patches(verbose=True, force_refresh=False)`**
+**`patch_dbx(force_refresh=False)`**
 
 - Applies all patches manually
 - Processes .pth files
@@ -935,8 +935,8 @@ verify_editable_installs()
 
 ```python
 # Every time Python restarts
-from dbx_patch import apply_all_patches
-apply_all_patches()
+from dbx_patch import patch_dbx
+patch_dbx()
 
 # Install editable packages
 %pip install -e /Workspace/Repos/my-repo/my-package
@@ -1075,8 +1075,8 @@ The package follows a "fail-open" philosophy:
 ```python
 # In sitecustomize.py
 try:
-    from dbx_patch import apply_all_patches
-    apply_all_patches(verbose=False)
+    from dbx_patch import patch_dbx
+    patch_dbx(force_refresh=False)
 except ImportError:
     pass  # dbx-patch not installed - skip
 except Exception as e:
@@ -1224,8 +1224,8 @@ refresh_path_hook()
 Or use force_refresh:
 
 ```python
-from dbx_patch import apply_all_patches
-apply_all_patches(force_refresh=True)
+from dbx_patch import patch_dbx
+patch_dbx(force_refresh=True)
 ```
 
 ### Problem: Patches removed after cluster restart

@@ -186,7 +186,7 @@ class TestPythonPathHookPatch:
 class TestApplyPatch:
     def test_check_patch_status(self) -> None:
         """Test checking patch status."""
-        from dbx_patch.apply_patch import check_patch_status
+        from dbx_patch.patch_dbx import check_patch_status
         from dbx_patch.models import StatusResult
 
         status = check_patch_status(verbose=False)
@@ -197,12 +197,12 @@ class TestApplyPatch:
         assert hasattr(status, "editable_paths_count")
         assert hasattr(status, "pth_files_processed")
 
-    def test_apply_all_patches_structure(self) -> None:
-        """Test that apply_all_patches returns correct structure."""
-        from dbx_patch.apply_patch import apply_all_patches
+    def test_patch_dbx_structure(self) -> None:
+        """Test that patch_dbx returns correct structure."""
+        from dbx_patch.patch_dbx import patch_dbx
         from dbx_patch.models import ApplyPatchesResult
 
-        result = apply_all_patches(verbose=False)
+        result = patch_dbx(force_refresh=False)
 
         assert isinstance(result, ApplyPatchesResult)
         assert hasattr(result, "pth_processing")
@@ -219,7 +219,7 @@ class TestApplyPatch:
 
     def test_verify_editable_installs_structure(self) -> None:
         """Test that verify_editable_installs returns correct structure."""
-        from dbx_patch.apply_patch import verify_editable_installs
+        from dbx_patch.patch_dbx import verify_editable_installs
         from dbx_patch.models import VerifyResult
 
         result = verify_editable_installs(verbose=False)
@@ -239,7 +239,7 @@ class TestApplyPatch:
 class TestIntegration:
     def test_full_workflow(self, temp_site_packages: Path, tmp_path: Path, mock_sys_path: None) -> None:
         """Test complete workflow: create editable install and verify it works."""
-        from dbx_patch.apply_patch import verify_editable_installs
+        from dbx_patch.patch_dbx import verify_editable_installs
         from dbx_patch.pth_processor import process_all_pth_files
 
         # Create a fake editable install

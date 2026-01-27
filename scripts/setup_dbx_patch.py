@@ -202,7 +202,7 @@ def verify_installation() -> None:
     print_section("Step 5: Verifying Installation")
 
     try:
-        from dbx_patch.apply_patch import verify_editable_installs
+        from dbx_patch.patch_dbx import verify_editable_installs
 
         print("Running verification checks...\n")
         result = verify_editable_installs(verbose=True)

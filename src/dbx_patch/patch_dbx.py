@@ -1,16 +1,26 @@
 """Main DBX-Patch Entry Point.
 
-This module provides a single, comprehensive method to patch Databricks runtime
+This module provides comprehensive methods to patch Databricks runtime
 for editable install support. Supports both legacy (< 18.0) and modern (>= 18.0)
 Databricks runtime versions.
+
+Quick usage:
+    from dbx_patch import patch_dbx
+    patch_dbx()
+
+Or for comprehensive setup with auto-patching on restart:
+    from dbx_patch import patch_and_install
+    patch_and_install()
 """
 
 import sys
 from typing import Any
 
-from dbx_patch.models import ApplyPatchesResult
+from dbx_patch.models import ApplyPatchesResult, RemovePatchesResult, StatusResult, VerifyResult
 from dbx_patch.utils.logger import PatchLogger
 from dbx_patch.utils.runtime_version import get_runtime_version_info
+
+logger = PatchLogger()
 
 
 def patch_dbx(force_refresh: bool = False) -> ApplyPatchesResult:
@@ -23,8 +33,8 @@ def patch_dbx(force_refresh: bool = False) -> ApplyPatchesResult:
     4. Patches PythonPathHook to preserve editable paths
     5. Patches AutoreloadDiscoverabilityHook to allow editable imports
 
-    Unlike apply_all_patches(), this method is optimized to avoid import loops
-    and ensures patches are applied in the correct order with proper error handling.
+    This method is optimized to avoid import loops and ensures patches are
+    applied in the correct order with proper error handling.
 
     Args:
         force_refresh: If True, force re-detection of editable paths
@@ -37,7 +47,6 @@ def patch_dbx(force_refresh: bool = False) -> ApplyPatchesResult:
         >>> patch_dbx()
         # All patches applied, editable installs now work!
     """
-    logger = PatchLogger()
     logger.debug("patch_dbx() called")
     logger.debug(f"force_refresh={force_refresh}")
 
@@ -203,11 +212,164 @@ def patch_dbx(force_refresh: bool = False) -> ApplyPatchesResult:
             sys_path_init_patch=sys_path_init_result,
             pth_processing=pth_result,
             wsfs_hook_patch=wsfs_result,
+            wsfs_path_finder_patch=wsfs_path_finder_result,
             python_path_hook_patch=path_hook_result,
             autoreload_hook_patch=autoreload_result,
             overall_success=overall_success,
             editable_paths=sorted(all_paths),
         )
+
+
+def verify_editable_installs() -> VerifyResult:
+    """Verify that editable installs are properly configured and can be imported.
+
+    Returns:
+        VerifyResult with configuration status
+    """
+    with logger.section("DBX-Patch: Verifying editable install configuration"):
+        from dbx_patch.patches.autoreload_hook_patch import is_patched as autoreload_patched
+        from dbx_patch.patches.python_path_hook_patch import is_patched as path_hook_patched
+        from dbx_patch.patches.wsfs_import_hook_patch import is_patched as wsfs_patched
+        from dbx_patch.patches.wsfs_path_finder_patch import is_patched as wsfs_path_finder_patched
+        from dbx_patch.pth_processor import get_editable_install_paths
+
+        editable_paths = get_editable_install_paths()
+        paths_in_sys_path = [p for p in editable_paths if p in sys.path]
+
+        wsfs_patched_status = wsfs_patched()
+        wsfs_path_finder_patched_status = wsfs_path_finder_patched()
+        path_hook_patched_status = path_hook_patched()
+        autoreload_patched_status = autoreload_patched()
+        status = "ok"
+
+        logger.info(f"Editable paths detected: {len(editable_paths)}")
+        logger.info(f"Paths in sys.path: {len(paths_in_sys_path)}")
+        logger.info(f"WsfsImportHook patched: {wsfs_patched_status}")
+        logger.info(f"WsfsPathFinder patched: {wsfs_path_finder_patched_status}")
+        logger.info(f"PythonPathHook patched: {path_hook_patched_status}")
+        logger.info(f"AutoreloadHook patched: {autoreload_patched_status}")
+        logger.blank()
+
+        # Check each editable path
+        if editable_paths:
+            logger.info("Editable install details:")
+
+            with logger.indent():
+                for path in sorted(editable_paths):
+                    in_sys_path = path in sys.path
+
+                    if in_sys_path:
+                        logger.success(path)
+                    else:
+                        logger.error(f"{path}")
+                        logger.warning("Not in sys.path!")
+                        status = "warning"
+        else:
+            logger.warning("No editable installs detected.")
+            with logger.indent():
+                logger.info("To install a package in editable mode:")
+                logger.info("%pip install -e /path/to/package")
+            status = "warning"
+
+        # Summary
+        logger.blank()
+        if status == "ok":
+            logger.success("Editable install configuration looks good!")
+        elif status == "warning":
+            logger.warning("Some issues detected - see details above")
+        else:
+            logger.error("Errors detected - editable installs may not work")
+
+    return VerifyResult(
+        editable_paths=sorted(editable_paths),
+        paths_in_sys_path=sorted(paths_in_sys_path),
+        wsfs_hook_patched=wsfs_patched_status,
+        wsfs_path_finder_patched=wsfs_path_finder_patched_status,
+        python_path_hook_patched=path_hook_patched_status,
+        autoreload_hook_patched=autoreload_patched_status,
+        importable_packages=[],
+        status=status,
+    )
+
+
+def check_patch_status() -> StatusResult:
+    """Check the status of all patches without applying them.
+
+    Returns:
+        StatusResult with current patch status
+    """
+    with logger.section("DBX-Patch Status"):
+        from dbx_patch.patches.autoreload_hook_patch import is_patched as autoreload_patched
+        from dbx_patch.patches.python_path_hook_patch import is_patched as path_hook_patched
+        from dbx_patch.patches.sys_path_init_patch import is_patched as sys_path_init_patched
+        from dbx_patch.patches.wsfs_import_hook_patch import is_patched as wsfs_patched
+        from dbx_patch.patches.wsfs_path_finder_patch import is_patched as wsfs_path_finder_patched
+        from dbx_patch.pth_processor import get_editable_install_paths
+
+        editable_paths = get_editable_install_paths()
+        paths_in_sys_path = sum(1 for p in editable_paths if p in sys.path)
+
+        sys_init_patched = sys_path_init_patched()
+        wsfs_hook_patched = wsfs_patched()
+        wsfs_path_finder_patched_status = wsfs_path_finder_patched()
+        path_hook_patched_status = path_hook_patched()
+        autoreload_patched_status = autoreload_patched()
+
+        logger.info(f"sys_path_init patched: {sys_init_patched}")
+        logger.info(f"WsfsImportHook patched: {wsfs_hook_patched}")
+        logger.info(f"WsfsPathFinder patched: {wsfs_path_finder_patched_status}")
+        logger.info(f"PythonPathHook patched: {path_hook_patched_status}")
+        logger.info(f"AutoreloadHook patched: {autoreload_patched_status}")
+        logger.info(f"Editable paths detected: {len(editable_paths)}")
+        logger.info(f"PTH files processed: {paths_in_sys_path > 0}")
+
+    return StatusResult(
+        sys_path_init_patched=sys_init_patched,
+        wsfs_hook_patched=wsfs_hook_patched,
+        wsfs_path_finder_patched=wsfs_path_finder_patched_status,
+        python_path_hook_patched=path_hook_patched_status,
+        autoreload_hook_patched=autoreload_patched_status,
+        editable_paths_count=len(editable_paths),
+        pth_files_processed=paths_in_sys_path > 0,
+    )
+
+
+def remove_all_patches() -> RemovePatchesResult:
+    """Remove all applied patches and restore original behavior.
+
+    Returns:
+        RemovePatchesResult with unpatch operation status
+    """
+    with logger.section("DBX-Patch: Removing all patches"):
+        from dbx_patch.patches.autoreload_hook_patch import unpatch_autoreload_hook
+        from dbx_patch.patches.python_path_hook_patch import unpatch_python_path_hook
+        from dbx_patch.patches.sys_path_init_patch import unpatch_sys_path_init
+        from dbx_patch.patches.wsfs_import_hook_patch import unpatch_wsfs_import_hook
+        from dbx_patch.patches.wsfs_path_finder_patch import unpatch_wsfs_path_finder
+
+        sys_path_init_result = unpatch_sys_path_init()
+        wsfs_result = unpatch_wsfs_import_hook()
+        wsfs_path_finder_result = unpatch_wsfs_path_finder()
+        path_hook_result = unpatch_python_path_hook()
+        autoreload_result = unpatch_autoreload_hook()
+
+        success = (
+            sys_path_init_result or wsfs_result or wsfs_path_finder_result or path_hook_result or autoreload_result
+        )
+
+        if success:
+            logger.success("Patches removed successfully")
+        else:
+            logger.warning("No patches were active")
+
+    return RemovePatchesResult(
+        sys_path_init_unpatched=sys_path_init_result,
+        wsfs_hook_unpatched=wsfs_result,
+        wsfs_path_finder_unpatched=wsfs_path_finder_result,
+        python_path_hook_unpatched=path_hook_result,
+        autoreload_hook_unpatched=autoreload_result,
+        success=success,
+    )
 
 
 def patch_and_install(force: bool = False, restart_python: bool = True) -> dict[str, Any]:
@@ -231,8 +393,6 @@ def patch_and_install(force: bool = False, restart_python: bool = True) -> dict[
         # Patches applied AND sitecustomize.py installed
         # Python will restart automatically if in Databricks
     """
-    logger = PatchLogger()
-
     with logger.section("DBX-Patch: Complete Setup"):
         # Step 1: Apply patches immediately
         logger.info("Phase 1: Applying patches for current session...")

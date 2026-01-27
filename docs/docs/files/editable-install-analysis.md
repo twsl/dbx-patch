@@ -175,7 +175,7 @@ To diagnose the issue, run the following in a notebook:
 
 ```python
 # Step 1: Check if patches are applied
-from dbx_patch.apply_patch import check_patch_status
+from dbx_patch.patch_dbx import check_patch_status
 status = check_patch_status()
 
 # Step 2: Check sys.path
@@ -247,7 +247,7 @@ patch_and_install()
 ### Verification
 
 ```python
-from dbx_patch.apply_patch import verify_editable_installs
+from dbx_patch.patch_dbx import verify_editable_installs
 verify_editable_installs()
 ```
 

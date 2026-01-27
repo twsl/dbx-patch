@@ -51,7 +51,7 @@ for p in paths:
     print(f"  {p}: {'✓' if p in sys.path else '✗ NOT IN sys.path'}")
 
 # 3. Are patches applied?
-from dbx_patch.apply_patch import check_patch_status
+from dbx_patch.patch_dbx import check_patch_status
 check_patch_status()
 ```
 
@@ -198,7 +198,7 @@ patch_and_install(restart_python=True)
 
 # After restart, patches should apply automatically
 # Verify:
-from dbx_patch.apply_patch import check_patch_status
+from dbx_patch.patch_dbx import check_patch_status
 check_patch_status()
 ```
 
@@ -234,7 +234,7 @@ If it still doesn't work, run full diagnostics:
 import os
 os.environ['DBX_PATCH_DEBUG'] = '1'
 
-from dbx_patch.apply_patch import verify_editable_installs
+from dbx_patch.patch_dbx import verify_editable_installs
 result = verify_editable_installs(verbose=True)
 
 # Check each hook manually
@@ -546,7 +546,7 @@ patch_and_install()
 import os
 os.environ['DBX_PATCH_DEBUG'] = '1'
 
-from dbx_patch.apply_patch import verify_editable_installs
+from dbx_patch.patch_dbx import verify_editable_installs
 verify_editable_installs(verbose=True)
 ```
 

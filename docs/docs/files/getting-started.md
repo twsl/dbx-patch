@@ -22,7 +22,7 @@ import my_package  # ❌ ModuleNotFoundError
 Databricks loads `sys_path_init` and `WsfsImportHook` **during Python startup**, before any notebook code runs:
 
 ```
-Python Start → sys_path_init → WsfsImportHook → Notebook → apply_all_patches() ❌ Too late!
+Python Start → sys_path_init → WsfsImportHook → Notebook → patch_dbx() ❌ Too late!
 ```
 
 By the time you can call patching functions from a notebook, the import system is already initialized and broken.
@@ -32,7 +32,7 @@ By the time you can call patching functions from a notebook, the import system i
 DBX-Patch uses Python's `sitecustomize.py` mechanism to apply patches **during Python initialization**, before the import system is set up:
 
 ```
-Python Start → sitecustomize.py → apply_all_patches() ✅ → sys_path_init → WsfsImportHook → Notebook
+Python Start → sitecustomize.py → patch_dbx() ✅ → sys_path_init → WsfsImportHook → Notebook
 ```
 
 ---
@@ -123,8 +123,8 @@ install_sitecustomize(restart_python=False)
 If you can't use sitecustomize.py, you can manually apply patches in each notebook:
 
 ```python
-from dbx_patch import apply_all_patches
-apply_all_patches()
+from dbx_patch import patch_dbx
+patch_dbx()
 
 # Install and use editable packages
 %pip install -e /Workspace/Repos/your-repo/your-package
@@ -146,8 +146,8 @@ import your_package
 
 ```python
 # Cell 1: Setup (only needed if not using sitecustomize.py)
-from dbx_patch import apply_all_patches
-apply_all_patches(verbose=False)
+from dbx_patch import patch_dbx
+patch_dbx(force_refresh=False)
 
 # Cell 2: Install editable
 %pip install -e /Workspace/Repos/your-repo/your-package
@@ -254,8 +254,8 @@ os.environ["DBX_PATCH_DEBUG"] = "1"
 os.environ["DBX_PATCH_VERBOSE"] = "1"
 
 # Now apply patches - you'll see detailed trace information
-from dbx_patch import apply_all_patches
-apply_all_patches()
+from dbx_patch import patch_dbx
+patch_dbx()
 ```
 
 **Debug output includes:**
@@ -269,7 +269,7 @@ apply_all_patches()
 **Example debug output:**
 
 ```
-[dbx-patch] apply_all_patches() called
+[dbx-patch] patch_dbx() called
 [dbx-patch] verbose=True, force_refresh=False
 [dbx-patch] get_editable_install_paths() called
 [dbx-patch] Processing .pth file: /path/to/site-packages/__editable__.my_package.pth

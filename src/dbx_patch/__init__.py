@@ -1,10 +1,4 @@
 from dbx_patch.__about__ import __version__
-from dbx_patch.apply_patch import (
-    apply_all_patches,
-    check_patch_status,
-    remove_all_patches,
-    verify_editable_installs,
-)
 from dbx_patch.install_sitecustomize import (
     check_sitecustomize_status,
     install_sitecustomize,
@@ -19,11 +13,16 @@ from dbx_patch.models import (
     StatusResult,
     VerifyResult,
 )
-from dbx_patch.patch_dbx import patch_and_install, patch_dbx
+from dbx_patch.patch_dbx import (
+    check_patch_status,
+    patch_and_install,
+    patch_dbx,
+    remove_all_patches,
+    verify_editable_installs,
+)
 
 __all__ = [
     "__version__",
-    "apply_all_patches",
     "check_patch_status",
     "remove_all_patches",
     "verify_editable_installs",
