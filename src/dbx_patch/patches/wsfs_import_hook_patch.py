@@ -431,6 +431,9 @@ def patch_wsfs_import_hook(verbose: bool = True) -> PatchResult:
             hook_found=True,
             error=str(e),
         )
+
+
+def unpatch_workspace_import_hook(verbose: bool = False) -> bool:
     """Remove the patch and restore original WsfsImportHook behavior.
 
     Args:
