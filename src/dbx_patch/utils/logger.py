@@ -5,77 +5,88 @@ Provides structured logging with context managers for separator formatting.
 
 from collections.abc import Generator
 from contextlib import contextmanager
+import logging
 import os
 import sys
-from typing import Any, Self, TextIO
+from typing import Any, Self
 
 
 class PatchLogger:
-    """Logger for DBX-Patch operations with context manager support for sections."""
+    """Logger for DBX-Patch operations with context manager support for sections.
 
-    def __init__(self, verbose: bool = True, output: TextIO | None = None) -> None:
+    Uses composition with logging.Logger and only logs when:
+    - DBX_PATCH_ENABLED env var is set to true
+    - DBX_PATCH_LOG_LEVEL env var is set to appropriate level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    """
+
+    def __init__(self, name: str = "dbx-patch") -> None:
         """Initialize the logger.
 
         Args:
-            verbose: If True, output messages. If False, suppress most output.
-                    Can be overridden by DBX_PATCH_DEBUG or DBX_PATCH_VERBOSE env vars.
-            output: Output stream (default: sys.stdout for info/success, sys.stderr for debug)
+            name: Logger name
         """
-        # Check environment variables
-        env_debug = os.environ.get("DBX_PATCH_DEBUG", "").lower() in ("1", "true", "yes")
-        env_verbose = os.environ.get("DBX_PATCH_VERBOSE", "").lower() in ("1", "true", "yes")
+        # Create internal logger
+        self._logger = logging.getLogger(name)
 
-        # Environment variables override the verbose parameter
-        self.verbose = env_verbose or verbose
-        self.debug_enabled = env_debug
-        self.output = output or sys.stdout
+        # Check if logging is enabled
+        self._enabled = os.environ.get("DBX_PATCH_ENABLED", "").lower() in ("1", "true", "yes")
+
+        # Set log level from env vars
+        # DBX_PATCH_LOG_LEVEL sets the level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        level_name = os.environ.get("DBX_PATCH_LOG_LEVEL", "ERROR").upper()
+        level = getattr(logging, level_name, logging.ERROR)
+
+        self._logger.setLevel(level)
+
+        # Setup handlers if enabled
+        if self._enabled:
+            # Clear any existing handlers
+            self._logger.handlers.clear()
+
+            # Add console handler
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setLevel(level)
+            formatter = logging.Formatter("%(message)s")
+            handler.setFormatter(formatter)
+            self._logger.addHandler(handler)
+
         self._indent_level = 0
         self._indent_char = "  "
 
-    def _write(self, message: str, force: bool = False) -> None:
-        """Write a message to output.
+    def _log_with_indent(self, level: int, message: str) -> None:
+        """Log a message with indentation if logging is enabled.
 
         Args:
-            message: Message to write
-            force: If True, write even if verbose=False
+            level: Logging level
+            message: Message to log
         """
-        if self.verbose or force:
+        if self._enabled and self._logger.isEnabledFor(level):
             indent = self._indent_char * self._indent_level
-            print(f"{indent}{message}", file=self.output)
+            self._logger.log(level, f"{indent}{message}")
 
-    def info(self, message: str) -> None:
+    def info(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Log an info message."""
-        self._write(message)
+        self._log_with_indent(logging.INFO, message)
 
     def success(self, message: str) -> None:
         """Log a success message."""
-        self._write(f"✅ {message}")
+        self._log_with_indent(logging.INFO, f"[SUCCESS] {message}")
 
-    def warning(self, message: str) -> None:
+    def warning(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Log a warning message."""
-        self._write(f"⚠️  {message}")
+        self._log_with_indent(logging.WARNING, f"[WARNING] {message}")
 
-    def error(self, message: str) -> None:
-        """Log an error message (always shown)."""
-        self._write(f"❌ {message}", force=True)
+    def error(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """Log an error message."""
+        self._log_with_indent(logging.ERROR, f"[ERROR] {message}")
 
-    def debug(self, message: str) -> None:
-        """Log a debug message (only if verbose)."""
-        if self.verbose:
-            self._write(f"🔍 {message}")
-
-    def debug_info(self, message: str) -> None:
-        """Log a debug trace message (only if DBX_PATCH_DEBUG is enabled).
-
-        These messages are sent to stderr to avoid cluttering normal output.
-        """
-        if self.debug_enabled:
-            indent = self._indent_char * self._indent_level
-            print(f"{indent}[dbx-patch] {message}", file=sys.stderr)
+    def debug(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """Log a debug message."""
+        self._log_with_indent(logging.DEBUG, f"[DEBUG] {message}")
 
     def separator(self, char: str = "-", length: int = 70) -> None:
         """Print a separator line."""
-        self._write(char * length)
+        self._log_with_indent(logging.INFO, char * length)
 
     @contextmanager
     def section(self, title: str, char: str = "=", length: int = 70) -> Generator[Self, Any, None]:
@@ -90,16 +101,16 @@ class PatchLogger:
             char: Character for separators
             length: Length of separator line
         """
-        if self.verbose:
-            self._write(char * length)
-            self._write(title)
-            self._write(char * length)
+        if self._enabled and self._logger.isEnabledFor(logging.INFO):
+            self._log_with_indent(logging.INFO, char * length)
+            self._log_with_indent(logging.INFO, title)
+            self._log_with_indent(logging.INFO, char * length)
 
         try:
             yield self
         finally:
-            if self.verbose:
-                self._write("")  # Blank line after section
+            if self._enabled and self._logger.isEnabledFor(logging.INFO):
+                self._log_with_indent(logging.INFO, "")  # Blank line after section
 
     @contextmanager
     def subsection(self, title: str, char: str = "-", length: int = 70) -> Generator[Self, Any, None]:
@@ -114,15 +125,15 @@ class PatchLogger:
             char: Character for separators
             length: Length of separator line
         """
-        if self.verbose:
-            self._write(title)
-            self._write(char * length)
+        if self._enabled and self._logger.isEnabledFor(logging.INFO):
+            self._log_with_indent(logging.INFO, title)
+            self._log_with_indent(logging.INFO, char * length)
 
         try:
             yield self
         finally:
-            if self.verbose:
-                self._write("")  # Blank line after subsection
+            if self._enabled and self._logger.isEnabledFor(logging.INFO):
+                self._log_with_indent(logging.INFO, "")  # Blank line after subsection
 
     @contextmanager
     def indent(self, levels: int = 1) -> Generator[Self, Any, None]:
@@ -144,27 +155,22 @@ class PatchLogger:
     def blank(self, count: int = 1) -> None:
         """Print blank lines."""
         for _ in range(count):
-            self._write("")
+            self._log_with_indent(logging.INFO, "")
 
 
 # Global default logger instance
 _default_logger: PatchLogger | None = None
 
 
-def get_logger(verbose: bool = True) -> PatchLogger:
+def get_logger() -> PatchLogger:
     """Get the default logger instance, creating it if necessary.
-
-    Args:
-        verbose: Verbosity setting for new logger (can be overridden by env vars)
 
     Returns:
         PatchLogger instance
     """
     global _default_logger
     if _default_logger is None:
-        # Environment variables take precedence
-        env_verbose = os.environ.get("DBX_PATCH_VERBOSE", "").lower() in ("1", "true", "yes")
-        _default_logger = PatchLogger(verbose=env_verbose or verbose)
+        _default_logger = PatchLogger()
     return _default_logger
 
 

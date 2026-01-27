@@ -31,9 +31,9 @@ def apply_all_patches(verbose: bool = True, force_refresh: bool = False) -> Appl
     Returns:
         ApplyPatchesResult with complete operation details
     """
-    logger = PatchLogger(verbose=verbose)
-    logger.debug_info("apply_all_patches() called")
-    logger.debug_info(f"verbose={verbose}, force_refresh={force_refresh}")
+    logger = PatchLogger()
+    logger.debug("apply_all_patches() called")
+    logger.debug(f"verbose={verbose}, force_refresh={force_refresh}")
 
     with logger.section("DBX-Patch: Applying patches for editable install support"):
         sys_path_init_result = None

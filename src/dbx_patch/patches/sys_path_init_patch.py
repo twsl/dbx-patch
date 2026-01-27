@@ -30,13 +30,15 @@ def create_patched_patch_sys_path(original_function: Callable[[], None]) -> Call
     """
 
     def patched_patch_sys_path_with_developer_paths() -> None:
-        import os
-        import sys as sys_module
+        try:
+            from dbx_patch.utils.logger import get_logger
 
-        if os.environ.get("DBX_PATCH_DEBUG"):
-            print(
-                "[dbx-patch] sys_path_init.patch_sys_path_with_developer_paths called (PATCHED)", file=sys_module.stderr
-            )
+            logger = get_logger()
+        except Exception:  # noqa: S110
+            logger = None  # Fail silently if logger can't be imported
+
+        if logger:
+            logger.debug("sys_path_init.patch_sys_path_with_developer_paths called (PATCHED)")
 
         # First, call the original function
         original_function()
@@ -45,17 +47,14 @@ def create_patched_patch_sys_path(original_function: Callable[[], None]) -> Call
         try:
             from dbx_patch.pth_processor import process_all_pth_files
 
-            if os.environ.get("DBX_PATCH_DEBUG"):
-                print("[dbx-patch] sys_path_init: Processing .pth files for editable installs", file=sys_module.stderr)
+            if logger:
+                logger.debug("sys_path_init: Processing .pth files for editable installs")
 
             # Process quietly to avoid verbose output during initialization
             result = process_all_pth_files(force=False, verbose=False)
 
-            if os.environ.get("DBX_PATCH_DEBUG"):
-                print(
-                    f"[dbx-patch] sys_path_init: Added {result.paths_added} editable paths to sys.path",
-                    file=sys_module.stderr,
-                )
+            if logger:
+                logger.debug(f"sys_path_init: Added {result.paths_added} editable paths to sys.path")
         except Exception:  # noqa: S110
             # Fail silently to not break Databricks initialization
             pass

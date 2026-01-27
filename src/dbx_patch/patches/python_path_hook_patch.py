@@ -57,10 +57,15 @@ def create_patched_handle_sys_path(original_method: Callable[..., None]) -> Call
     def patched_handle_sys_path_maybe_updated(self: Any) -> None:
         import os
 
-        if os.environ.get("DBX_PATCH_DEBUG"):
-            import sys as sys_module
+        try:
+            from dbx_patch.utils.logger import get_logger
 
-            print("[dbx-patch] PythonPathHook._handle_sys_path_maybe_updated called (PATCHED)", file=sys_module.stderr)
+            logger = get_logger()
+        except Exception:  # noqa: S110
+            logger = None  # Fail silently if logger can't be imported
+
+        if logger:
+            logger.debug("PythonPathHook._handle_sys_path_maybe_updated called (PATCHED)")
 
         # Call original method first
         original_method(self)
@@ -72,15 +77,10 @@ def create_patched_handle_sys_path(original_method: Callable[..., None]) -> Call
                 if editable_path not in sys.path:
                     paths_to_restore.append(editable_path)
 
-            if os.environ.get("DBX_PATCH_DEBUG") and paths_to_restore:
-                import sys as sys_module
-
-                print(
-                    f"[dbx-patch] PythonPathHook: Restoring {len(paths_to_restore)} editable path(s) to sys.path",
-                    file=sys_module.stderr,
-                )
+            if paths_to_restore and logger:
+                logger.debug(f"PythonPathHook: Restoring {len(paths_to_restore)} editable path(s) to sys.path")
                 for path in paths_to_restore:
-                    print(f"[dbx-patch] PythonPathHook: Restoring path: {path}", file=sys_module.stderr)
+                    logger.debug(f"PythonPathHook: Restoring path: {path}")
 
             # Restore missing paths (append to end to not interfere with workspace paths)
             for path in paths_to_restore:

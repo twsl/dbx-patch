@@ -10,6 +10,7 @@ even when called through the autoreload hook's original import reference.
 """
 
 import builtins
+import logging
 import os
 import sys
 from typing import Any
@@ -21,6 +22,18 @@ _PATCH_APPLIED = False
 _REGISTERED_CHECK: Any = None
 _ORIGINAL_BUILTINS_IMPORT: Any = None
 _IMPORT_PATCH_APPLIED = False
+_CACHED_LOGGER: Any = None
+
+
+def _get_cached_logger() -> Any:
+    """Get cached logger instance to avoid import loops."""
+    global _CACHED_LOGGER
+    if _CACHED_LOGGER is None:
+        try:
+            _CACHED_LOGGER = get_logger()
+        except Exception:  # noqa: S110
+            pass  # Fail silently if logger can't be imported
+    return _CACHED_LOGGER
 
 
 def _editable_path_check(fname: str) -> bool:
@@ -42,13 +55,14 @@ def _editable_path_check(fname: str) -> bool:
     # Check if the file is under any editable install path
     result = any(fname.startswith(editable_path) for editable_path in editable_paths)
 
-    # Debug logging (avoid importing logger to prevent loops)
-    if os.environ.get("DBX_PATCH_DEBUG"):
-        debug_msg = f"[dbx-patch] Autoreload check: {fname} -> {result}"
+    # Debug logging
+    logger = _get_cached_logger()
+    if logger:
+        debug_msg = f"Autoreload check: {fname} -> {result}"
         if result:
             matching = [p for p in editable_paths if fname.startswith(p)]
             debug_msg += f" (matched: {matching[0] if matching else 'unknown'})"
-        print(debug_msg, file=sys.stderr)
+        logger.debug(debug_msg)
 
     return result
 
@@ -66,9 +80,9 @@ def _patched_builtins_import(name: str, *args: Any, **kwargs: Any) -> Any:
     Returns:
         The imported module
     """
-    # Avoid calling logger to prevent import loops
-    if os.environ.get("DBX_PATCH_DEBUG"):
-        print(f"[dbx-patch] Importing: {name} (args={args}, kwargs={kwargs})", file=sys.stderr)
+    logger = _get_cached_logger()
+    if logger:
+        logger.debug(f"Importing: {name} (args={args}, kwargs={kwargs})")
 
     if _ORIGINAL_BUILTINS_IMPORT is None:
         msg = "Original builtins.__import__ not saved"
@@ -77,14 +91,13 @@ def _patched_builtins_import(name: str, *args: Any, **kwargs: Any) -> Any:
     try:
         result = _ORIGINAL_BUILTINS_IMPORT(name, *args, **kwargs)
     except Exception as e:
-        if os.environ.get("DBX_PATCH_DEBUG"):
-            print(f"[dbx-patch] Import FAILED: {name} - {e}", file=sys.stderr)
+        if logger:
+            logger.debug(f"Import FAILED: {name} - {e}")
         raise
     else:
-        if os.environ.get("DBX_PATCH_DEBUG"):
+        if logger:
             module_file = getattr(result, "__file__", "<no __file__>")
-            print(f"[dbx-patch] Import succeeded: {name} from {module_file}", file=sys.stderr)
-
+            logger.debug(f"Import succeeded: {name} from {module_file}")
         return result
 
 
@@ -102,11 +115,11 @@ def patch_autoreload_hook(verbose: bool = True) -> PatchResult:
         PatchResult with operation details
     """
     global _PATCH_APPLIED, _REGISTERED_CHECK, _ORIGINAL_BUILTINS_IMPORT, _IMPORT_PATCH_APPLIED
-    logger = get_logger(verbose)
+    logger = get_logger()
 
     # Patch builtins.__import__ for debug logging if in debug mode
-    if logger.debug_enabled and not _IMPORT_PATCH_APPLIED:
-        logger.info("DBX_PATCH_DEBUG enabled - patching builtins.__import__ for debug logging...")
+    if logger._logger.isEnabledFor(logging.DEBUG) and not _IMPORT_PATCH_APPLIED:
+        logger.info("Debug logging enabled - patching builtins.__import__ for debug logging...")
         _ORIGINAL_BUILTINS_IMPORT = builtins.__import__
         builtins.__import__ = _patched_builtins_import  # type: ignore[assignment]
         _IMPORT_PATCH_APPLIED = True
@@ -217,7 +230,7 @@ def unpatch_autoreload_hook(verbose: bool = True) -> bool:
         True if unpatch was successful, False otherwise
     """
     global _PATCH_APPLIED, _REGISTERED_CHECK, _IMPORT_PATCH_APPLIED, _ORIGINAL_BUILTINS_IMPORT
-    logger = get_logger(verbose)
+    logger = get_logger()
 
     success = True
 

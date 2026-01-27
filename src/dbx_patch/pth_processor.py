@@ -10,13 +10,26 @@ Supports:
 - Standard .pth files with directory paths
 """
 
+import contextlib
 import json
 import os
 from pathlib import Path
 import sys
+from typing import Any
 
 from dbx_patch.models import PthProcessingResult
 from dbx_patch.utils.logger import get_logger
+
+_CACHED_LOGGER: Any = None
+
+
+def _get_cached_logger() -> Any:
+    """Get cached logger instance to avoid import loops."""
+    global _CACHED_LOGGER
+    if _CACHED_LOGGER is None:
+        with contextlib.suppress(Exception):
+            _CACHED_LOGGER = get_logger()
+    return _CACHED_LOGGER
 
 
 def get_site_packages_dirs() -> list[str]:
@@ -70,9 +83,9 @@ def process_pth_file(pth_file_path: str) -> list[str]:
     Returns:
         List of absolute directory paths found in the file
     """
-    # Avoid calling logger to prevent import loops during patch initialization
-    if os.environ.get("DBX_PATCH_DEBUG"):
-        print(f"[dbx-patch] Processing .pth file: {pth_file_path}", file=sys.stderr)
+    logger = _get_cached_logger()
+    if logger:
+        logger.debug(f"Processing .pth file: {pth_file_path}")
 
     paths = []
     try:
@@ -98,13 +111,14 @@ def process_pth_file(pth_file_path: str) -> list[str]:
 
                 if abs_path.exists() and abs_path.is_dir():
                     paths.append(str(abs_path))
-                    if os.environ.get("DBX_PATCH_DEBUG"):
-                        print(f"[dbx-patch] Found editable path in .pth: {abs_path}", file=sys.stderr)
+                    if logger:
+                        logger.debug(f"Found editable path in .pth: {abs_path}")
     except (OSError, UnicodeDecodeError) as e:
-        get_logger().warning(f"Could not process {pth_file_path}: {e}")
+        if logger:
+            logger.warning(f"Could not process {pth_file_path}: {e}")
 
-    if os.environ.get("DBX_PATCH_DEBUG"):
-        print(f"[dbx-patch] Total paths from {pth_file_path}: {len(paths)}", file=sys.stderr)
+    if logger:
+        logger.debug(f"Total paths from {pth_file_path}: {len(paths)}")
 
     return paths
 
@@ -181,9 +195,9 @@ def add_paths_to_sys_path(paths: list[str], prepend: bool = False) -> int:
     Returns:
         Number of paths actually added
     """
-    # Avoid calling logger to prevent import loops
-    if os.environ.get("DBX_PATCH_DEBUG"):
-        print(f"[dbx-patch] Adding {len(paths)} path(s) to sys.path (prepend={prepend})", file=sys.stderr)
+    logger = _get_cached_logger()
+    if logger:
+        logger.debug(f"Adding {len(paths)} path(s) to sys.path (prepend={prepend})")
 
     added_count = 0
     existing_paths = set(sys.path)
@@ -195,10 +209,11 @@ def add_paths_to_sys_path(paths: list[str], prepend: bool = False) -> int:
             else:
                 sys.path.append(path)
             added_count += 1
-            if os.environ.get("DBX_PATCH_DEBUG"):
-                print(f"[dbx-patch] Added to sys.path: {path}", file=sys.stderr)
-        elif os.environ.get("DBX_PATCH_DEBUG"):
-            print(f"[dbx-patch] Already in sys.path: {path}", file=sys.stderr)
+            if logger:
+                logger.debug(f"Added to sys.path: {path}")
+        else:
+            if logger:
+                logger.debug(f"Already in sys.path: {path}")
 
     return added_count
 
@@ -219,7 +234,7 @@ def process_all_pth_files(force: bool = False, verbose: bool = True) -> PthProce
     all_paths = []
     pth_files_count = 0
     egg_link_paths = []
-    logger = get_logger(verbose)
+    logger = get_logger()
 
     logger.info(f"Scanning {len(site_dirs)} site-packages directories for editable installs...")
 
@@ -289,9 +304,9 @@ def get_editable_install_paths() -> set[str]:
     Returns:
         Set of absolute paths to editable install directories
     """
-    # Avoid calling logger to prevent import loops
-    if os.environ.get("DBX_PATCH_DEBUG"):
-        print("[dbx-patch] get_editable_install_paths() called", file=sys.stderr)
+    logger = _get_cached_logger()
+    if logger:
+        logger.debug("get_editable_install_paths() called")
 
     all_paths = set()
 
@@ -304,9 +319,9 @@ def get_editable_install_paths() -> set[str]:
     # From metadata
     all_paths.update(detect_editable_installs_via_metadata())
 
-    if os.environ.get("DBX_PATCH_DEBUG"):
-        print(f"[dbx-patch] get_editable_install_paths() returning {len(all_paths)} path(s)", file=sys.stderr)
+    if logger:
+        logger.debug(f"get_editable_install_paths() returning {len(all_paths)} path(s)")
         for path in sorted(all_paths):
-            print(f"[dbx-patch]   - {path}", file=sys.stderr)
+            logger.debug(f"  - {path}")
 
     return all_paths

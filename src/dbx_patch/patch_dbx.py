@@ -38,20 +38,20 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
         >>> patch_dbx()
         # All patches applied, editable installs now work!
     """
-    logger = PatchLogger(verbose=verbose)
-    logger.debug_info("patch_dbx() called")
-    logger.debug_info(f"verbose={verbose}, force_refresh={force_refresh}")
+    logger = PatchLogger()
+    logger.debug("patch_dbx() called")
+    logger.debug(f"verbose={verbose}, force_refresh={force_refresh}")
 
     # Display runtime version info
     version_info = get_runtime_version_info()
     if version_info["is_databricks"]:
-        logger.debug_info(f"Databricks Runtime Version: {version_info['raw']}")
-        logger.debug_info(
+        logger.debug(f"Databricks Runtime Version: {version_info['raw']}")
+        logger.debug(
             f"Using patches for DBR {'>=18.0' if version_info['major'] and version_info['major'] >= 18 else '<18.0'}"
         )
     else:
-        logger.debug_info("Not running in Databricks (or version detection failed)")
-        logger.debug_info("Assuming modern runtime (>=18.0) for local testing")
+        logger.debug("Not running in Databricks (or version detection failed)")
+        logger.debug("Assuming modern runtime (>=18.0) for local testing")
 
     with logger.section("DBX-Patch: Enabling editable install support"):
         sys_path_init_result = None
@@ -72,7 +72,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
                 logger.error(f"Failed to process .pth files: {e}")
                 import traceback
 
-                logger.debug_info(f"Traceback: {traceback.format_exc()}")
+                logger.debug(f"Traceback: {traceback.format_exc()}")
 
         # Step 2: Patch sys_path_init (this won't trigger imports immediately)
         with logger.subsection("Step 2: Patching sys_path_init..."):
@@ -85,7 +85,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
                 logger.error(f"Failed to patch sys_path_init: {e}")
                 import traceback
 
-                logger.debug_info(f"Traceback: {traceback.format_exc()}")
+                logger.debug(f"Traceback: {traceback.format_exc()}")
 
         # Step 3: Patch WsfsImportHook (import hook for workspace files)
         with logger.subsection("Step 3: Patching Workspace Import Machinery..."):
@@ -98,7 +98,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
                 logger.error(f"Failed to patch workspace import machinery: {e}")
                 import traceback
 
-                logger.debug_info(f"Traceback: {traceback.format_exc()}")
+                logger.debug(f"Traceback: {traceback.format_exc()}")
 
         # Step 4: Patch PythonPathHook (preserves editable paths)
         with logger.subsection("Step 4: Patching PythonPathHook..."):
@@ -111,7 +111,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
                 logger.error(f"Failed to patch PythonPathHook: {e}")
                 import traceback
 
-                logger.debug_info(f"Traceback: {traceback.format_exc()}")
+                logger.debug(f"Traceback: {traceback.format_exc()}")
 
         # Step 5: Patch AutoreloadDiscoverabilityHook (autoreload support)
         with logger.subsection("Step 5: Patching AutoreloadDiscoverabilityHook..."):
@@ -124,7 +124,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
                 logger.error(f"Failed to patch AutoreloadDiscoverabilityHook: {e}")
                 import traceback
 
-                logger.debug_info(f"Traceback: {traceback.format_exc()}")
+                logger.debug(f"Traceback: {traceback.format_exc()}")
 
         # Step 6: Verify WsfsPathFinder (optional verification)
         wsfs_path_finder_result = None
@@ -138,7 +138,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
                 logger.error(f"Failed to verify workspace path finder: {e}")
                 import traceback
 
-                logger.debug_info(f"Traceback: {traceback.format_exc()}")
+                logger.debug(f"Traceback: {traceback.format_exc()}")
 
         # Step 7: Verify PostImportHook (optional verification)
         post_import_hook_result = None
@@ -152,7 +152,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
                 logger.error(f"Failed to verify PostImportHook: {e}")
                 import traceback
 
-                logger.debug_info(f"Traceback: {traceback.format_exc()}")
+                logger.debug(f"Traceback: {traceback.format_exc()}")
 
         # Collect all editable paths
         all_paths = set()

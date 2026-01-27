@@ -108,7 +108,7 @@ def install_sitecustomize(verbose: bool = True, force: bool = False, restart_pyt
         # Python will restart automatically if running in Databricks
         # After restart, editable installs will work automatically!
     """
-    logger = PatchLogger(verbose=verbose)
+    logger = PatchLogger()
 
     with logger.section("Installing sitecustomize.py for auto-apply"):
         # Find site-packages
@@ -204,7 +204,8 @@ def uninstall_sitecustomize(verbose: bool = True) -> bool:
     Returns:
         True if uninstallation succeeded, False otherwise
     """
-    logger = PatchLogger(verbose=verbose)
+    logger = PatchLogger()
+    logger.debug("uninstall_sitecustomize() called")
 
     with logger.section("Uninstalling sitecustomize.py"):
         site_packages = get_site_packages_path()
@@ -258,7 +259,8 @@ def check_sitecustomize_status(verbose: bool = True) -> SitecustomizeStatus:
     Returns:
         SitecustomizeStatus with installation information
     """
-    logger = PatchLogger(verbose=verbose)
+    logger = PatchLogger()
+    logger.debug("check_sitecustomize_status() called")
 
     site_packages = get_site_packages_path()
     if site_packages is None:

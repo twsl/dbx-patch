@@ -63,13 +63,15 @@ def create_patched_is_user_import(original_method: Callable[..., bool]) -> Calla
     """
 
     def patched_is_user_import(self: Any) -> bool:
-        # Avoid calling get_logger() here to prevent import loops
-        import os
+        try:
+            from dbx_patch.utils.logger import get_logger
 
-        if os.environ.get("DBX_PATCH_DEBUG"):
-            import sys
+            logger = get_logger()
+        except Exception:  # noqa: S110
+            logger = None  # Fail silently if logger can't be imported
 
-            print("[dbx-patch] WsfsImportHook.__is_user_import called (PATCHED)", file=sys.stderr)
+        if logger:
+            logger.debug("WsfsImportHook.__is_user_import called (PATCHED)")
 
         try:
             f = inspect.currentframe()
@@ -91,11 +93,10 @@ def create_patched_is_user_import(original_method: Callable[..., bool]) -> Calla
                 if _EDITABLE_PATHS:
                     is_editable_path = any(filename.startswith(editable_path) for editable_path in _EDITABLE_PATHS)
                     if is_editable_path:
-                        if os.environ.get("DBX_PATCH_DEBUG"):
+                        if logger:
                             matching = [p for p in _EDITABLE_PATHS if filename.startswith(p)]
-                            print(
-                                f"[dbx-patch] WsfsImportHook: Allowing import from editable path: {filename} (matched: {matching[0] if matching else 'unknown'})",
-                                file=sys.stderr,
+                            logger.debug(
+                                f"WsfsImportHook: Allowing import from editable path: {filename} (matched: {matching[0] if matching else 'unknown'})"
                             )
                         return True
 
@@ -187,7 +188,7 @@ def create_patched_is_user_import_v18(original_method: Callable[..., bool]) -> C
         import os
         import sys
 
-        if os.environ.get("DBX_PATCH_DEBUG"):
+        if os.environ.get("DBX_PATCH_ENABLED") and os.environ.get("DBX_PATCH_LOG_LEVEL", "ERROR").upper() == "DEBUG":
             print("[dbx-patch] _WorkspacePathEntryFinder._is_user_import called (PATCHED)", file=sys.stderr)
 
         try:
@@ -204,11 +205,10 @@ def create_patched_is_user_import_v18(original_method: Callable[..., bool]) -> C
                 if _EDITABLE_PATHS:
                     is_editable_path = any(filename.startswith(editable_path) for editable_path in _EDITABLE_PATHS)
                     if is_editable_path:
-                        if os.environ.get("DBX_PATCH_DEBUG"):
+                        if logger:
                             matching = [p for p in _EDITABLE_PATHS if filename.startswith(p)]
-                            print(
-                                f"[dbx-patch] _WorkspacePathEntryFinder: Allowing import from editable path: {filename} (matched: {matching[0] if matching else 'unknown'})",
-                                file=sys.stderr,
+                            logger.debug(
+                                f"_WorkspacePathEntryFinder: Allowing import from editable path: {filename} (matched: {matching[0] if matching else 'unknown'})"
                             )
                         return True
 
