@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Setup Script for dbx-patch with uv and Editable Installs
+"""Setup Script for dbx-patch with uv and Editable Installs.
 
 This script:
 1. Installs uv package manager
@@ -152,7 +152,7 @@ def apply_patches(verbose: bool = True) -> None:
         from dbx_patch import patch_dbx
 
     print("\nApplying all patches...\n")
-    result = patch_dbx(verbose=verbose)
+    result = patch_dbx()
 
     print("\n" + "-" * 80)
     print("Patch Results:")
@@ -182,7 +182,7 @@ def install_sitecustomize(force: bool = False) -> None:
     try:
         from dbx_patch.install_sitecustomize import install_sitecustomize as install_sc
 
-        result = install_sc(verbose=True, force=force, restart_python=False)
+        result = install_sc()
 
         if isinstance(result, dict) and result.get("success"):
             print("\n✓ sitecustomize.py installed successfully!")
@@ -205,7 +205,7 @@ def verify_installation() -> None:
         from dbx_patch.patch_dbx import verify_editable_installs
 
         print("Running verification checks...\n")
-        result = verify_editable_installs(verbose=True)
+        result = verify_editable_installs()
 
         print("\n" + "-" * 80)
         print("Verification Results:")

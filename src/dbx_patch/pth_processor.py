@@ -123,12 +123,20 @@ def process_pth_file(pth_file_path: str) -> list[str]:
 
                 # Check if it's a valid directory path
                 line_path = Path(line)
-                abs_path = line_path if line_path.is_absolute() else (Path(pth_file_path).parent / line).resolve()
+                if line_path.is_absolute():
+                    abs_path = line_path.resolve()
+                else:
+                    abs_path = (Path(pth_file_path).parent / line).resolve()
 
                 if abs_path.exists() and abs_path.is_dir():
                     paths.append(str(abs_path))
                     if logger:
                         logger.debug(f"Found editable path in .pth: {abs_path}")
+                else:
+                    if logger:
+                        logger.debug(
+                            f"Skipping invalid path in .pth: {line} (resolved to {abs_path}, exists={abs_path.exists()}, is_dir={abs_path.is_dir() if abs_path.exists() else 'N/A'})"
+                        )
     except (OSError, UnicodeDecodeError) as e:
         if logger:
             logger.warning(f"Could not process {pth_file_path}: {e}")

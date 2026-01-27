@@ -170,6 +170,8 @@ def patch_dbx(force_refresh: bool = False) -> ApplyPatchesResult:
             all_paths.update(wsfs_result.editable_paths or [])
         if path_hook_result:
             all_paths.update(path_hook_result.editable_paths or [])
+        if autoreload_result:
+            all_paths.update(autoreload_result.editable_paths or [])
 
         # Summary
         logger.blank()
