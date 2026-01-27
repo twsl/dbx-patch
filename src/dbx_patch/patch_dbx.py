@@ -85,9 +85,9 @@ def patch_dbx(force_refresh: bool = False) -> ApplyPatchesResult:
         # Step 2: Patch sys_path_init (this won't trigger imports immediately)
         with logger.subsection("Step 2: Patching sys_path_init..."):
             try:
-                from dbx_patch.patches.sys_path_init_patch import patch_sys_path_init
+                from dbx_patch.patches.sys_path_init_patch import SysPathInitPatch
 
-                sys_path_init_result = patch_sys_path_init()
+                sys_path_init_result = SysPathInitPatch().patch()
 
             except Exception as e:
                 logger.error(f"Failed to patch sys_path_init: {e}")
@@ -98,9 +98,9 @@ def patch_dbx(force_refresh: bool = False) -> ApplyPatchesResult:
         # Step 3: Patch WsfsImportHook (import hook for workspace files)
         with logger.subsection("Step 3: Patching Workspace Import Machinery..."):
             try:
-                from dbx_patch.patches.wsfs_import_hook_patch import patch_wsfs_import_hook
+                from dbx_patch.patches.wsfs_import_hook_patch import WsfsImportHookPatch
 
-                wsfs_result = patch_wsfs_import_hook()
+                wsfs_result = WsfsImportHookPatch().patch()
 
             except Exception as e:
                 logger.error(f"Failed to patch workspace import machinery: {e}")
@@ -111,9 +111,9 @@ def patch_dbx(force_refresh: bool = False) -> ApplyPatchesResult:
         # Step 4: Patch PythonPathHook (preserves editable paths)
         with logger.subsection("Step 4: Patching PythonPathHook..."):
             try:
-                from dbx_patch.patches.python_path_hook_patch import patch_python_path_hook
+                from dbx_patch.patches.python_path_hook_patch import PythonPathHookPatch
 
-                path_hook_result = patch_python_path_hook()
+                path_hook_result = PythonPathHookPatch().patch()
 
             except Exception as e:
                 logger.error(f"Failed to patch PythonPathHook: {e}")
@@ -124,9 +124,9 @@ def patch_dbx(force_refresh: bool = False) -> ApplyPatchesResult:
         # Step 5: Patch AutoreloadDiscoverabilityHook (autoreload support)
         with logger.subsection("Step 5: Patching AutoreloadDiscoverabilityHook..."):
             try:
-                from dbx_patch.patches.autoreload_hook_patch import patch_autoreload_hook
+                from dbx_patch.patches.autoreload_hook_patch import AutoreloadHookPatch
 
-                autoreload_result = patch_autoreload_hook()
+                autoreload_result = AutoreloadHookPatch().patch()
 
             except Exception as e:
                 logger.error(f"Failed to patch AutoreloadDiscoverabilityHook: {e}")
@@ -138,9 +138,9 @@ def patch_dbx(force_refresh: bool = False) -> ApplyPatchesResult:
         wsfs_path_finder_result = None
         with logger.subsection("Step 6: Verifying Workspace PathFinder compatibility..."):
             try:
-                from dbx_patch.patches.wsfs_path_finder_patch import patch_wsfs_path_finder
+                from dbx_patch.patches.wsfs_path_finder_patch import WsfsPathFinderVerification
 
-                wsfs_path_finder_result = patch_wsfs_path_finder()
+                wsfs_path_finder_result = WsfsPathFinderVerification().verify()
 
             except Exception as e:
                 logger.error(f"Failed to verify workspace path finder: {e}")
@@ -152,9 +152,9 @@ def patch_dbx(force_refresh: bool = False) -> ApplyPatchesResult:
         post_import_hook_result = None
         with logger.subsection("Step 7: Verifying PostImportHook compatibility..."):
             try:
-                from dbx_patch.patches.post_import_hook_verify import verify_post_import_hook
+                from dbx_patch.patches.post_import_hook_verify import PostImportHookVerification
 
-                post_import_hook_result = verify_post_import_hook()
+                post_import_hook_result = PostImportHookVerification().verify()
 
             except Exception as e:
                 logger.error(f"Failed to verify PostImportHook: {e}")
@@ -227,10 +227,15 @@ def verify_editable_installs() -> VerifyResult:
         VerifyResult with configuration status
     """
     with logger.section("DBX-Patch: Verifying editable install configuration"):
-        from dbx_patch.patches.autoreload_hook_patch import is_patched as autoreload_patched
-        from dbx_patch.patches.python_path_hook_patch import is_patched as path_hook_patched
-        from dbx_patch.patches.wsfs_import_hook_patch import is_patched as wsfs_patched
-        from dbx_patch.patches.wsfs_path_finder_patch import is_patched as wsfs_path_finder_patched
+        from dbx_patch.patches.autoreload_hook_patch import AutoreloadHookPatch
+        from dbx_patch.patches.python_path_hook_patch import PythonPathHookPatch
+        from dbx_patch.patches.wsfs_import_hook_patch import WsfsImportHookPatch
+        from dbx_patch.patches.wsfs_path_finder_patch import WsfsPathFinderVerification
+
+        autoreload_patched = AutoreloadHookPatch().is_applied
+        path_hook_patched = PythonPathHookPatch().is_applied
+        wsfs_patched = WsfsImportHookPatch().is_applied
+        wsfs_path_finder_patched = WsfsPathFinderVerification().is_verified
         from dbx_patch.pth_processor import get_editable_install_paths
 
         editable_paths = get_editable_install_paths()
@@ -299,11 +304,17 @@ def check_patch_status() -> StatusResult:
         StatusResult with current patch status
     """
     with logger.section("DBX-Patch Status"):
-        from dbx_patch.patches.autoreload_hook_patch import is_patched as autoreload_patched
-        from dbx_patch.patches.python_path_hook_patch import is_patched as path_hook_patched
-        from dbx_patch.patches.sys_path_init_patch import is_patched as sys_path_init_patched
-        from dbx_patch.patches.wsfs_import_hook_patch import is_patched as wsfs_patched
-        from dbx_patch.patches.wsfs_path_finder_patch import is_patched as wsfs_path_finder_patched
+        from dbx_patch.patches.autoreload_hook_patch import AutoreloadHookPatch
+        from dbx_patch.patches.python_path_hook_patch import PythonPathHookPatch
+        from dbx_patch.patches.sys_path_init_patch import SysPathInitPatch
+        from dbx_patch.patches.wsfs_import_hook_patch import WsfsImportHookPatch
+        from dbx_patch.patches.wsfs_path_finder_patch import WsfsPathFinderVerification
+
+        autoreload_patched = AutoreloadHookPatch().is_applied
+        path_hook_patched = PythonPathHookPatch().is_applied
+        sys_path_init_patched = SysPathInitPatch().is_applied
+        wsfs_patched = WsfsImportHookPatch().is_applied
+        wsfs_path_finder_patched = WsfsPathFinderVerification().is_verified
         from dbx_patch.pth_processor import get_editable_install_paths
 
         editable_paths = get_editable_install_paths()
@@ -341,17 +352,17 @@ def remove_all_patches() -> RemovePatchesResult:
         RemovePatchesResult with unpatch operation status
     """
     with logger.section("DBX-Patch: Removing all patches"):
-        from dbx_patch.patches.autoreload_hook_patch import unpatch_autoreload_hook
-        from dbx_patch.patches.python_path_hook_patch import unpatch_python_path_hook
-        from dbx_patch.patches.sys_path_init_patch import unpatch_sys_path_init
-        from dbx_patch.patches.wsfs_import_hook_patch import unpatch_wsfs_import_hook
-        from dbx_patch.patches.wsfs_path_finder_patch import unpatch_wsfs_path_finder
+        from dbx_patch.patches.autoreload_hook_patch import AutoreloadHookPatch
+        from dbx_patch.patches.python_path_hook_patch import PythonPathHookPatch
+        from dbx_patch.patches.sys_path_init_patch import SysPathInitPatch
+        from dbx_patch.patches.wsfs_import_hook_patch import WsfsImportHookPatch
+        from dbx_patch.patches.wsfs_path_finder_patch import WsfsPathFinderVerification
 
-        sys_path_init_result = unpatch_sys_path_init()
-        wsfs_result = unpatch_wsfs_import_hook()
-        wsfs_path_finder_result = unpatch_wsfs_path_finder()
-        path_hook_result = unpatch_python_path_hook()
-        autoreload_result = unpatch_autoreload_hook()
+        sys_path_init_result = SysPathInitPatch().remove()
+        wsfs_result = WsfsImportHookPatch().remove()
+        wsfs_path_finder_result = False  # No remove needed for verification
+        path_hook_result = PythonPathHookPatch().remove()
+        autoreload_result = AutoreloadHookPatch().remove()
 
         success = (
             sys_path_init_result or wsfs_result or wsfs_path_finder_result or path_hook_result or autoreload_result

@@ -133,63 +133,63 @@ class TestPthProcessor:
 class TestWsfsImportHookPatch:
     def test_patch_detection_without_dbruntime(self) -> None:
         """Test that patch gracefully handles missing dbruntime."""
-        from dbx_patch.patches.wsfs_import_hook_patch import patch_wsfs_import_hook
+        from dbx_patch.patches.wsfs_import_hook_patch import WsfsImportHookPatch
 
         # This should not raise an error even if dbruntime is not available
-        result = patch_wsfs_import_hook(verbose=False)
+        result = WsfsImportHookPatch().patch()
 
         # Should indicate hook was not found
         assert hasattr(result, "hook_found")
 
     def test_is_patched_initial_state(self) -> None:
         """Test initial patch state is False."""
-        from dbx_patch.patches.wsfs_import_hook_patch import is_patched
+        from dbx_patch.patches.wsfs_import_hook_patch import WsfsImportHookPatch
 
         # Initially should not be patched (unless previously patched in same session)
         # Just verify it returns a boolean
-        assert isinstance(is_patched(), bool)
+        assert isinstance(WsfsImportHookPatch().is_applied(), bool)
 
     def test_get_allowed_editable_paths(self) -> None:
         """Test getting allowed editable paths."""
-        from dbx_patch.patches.wsfs_import_hook_patch import get_allowed_editable_paths
+        from dbx_patch.patches.wsfs_import_hook_patch import WsfsImportHookPatch
 
-        paths = get_allowed_editable_paths()
+        paths = WsfsImportHookPatch().get_editable_paths()
         assert isinstance(paths, set)
 
 
 class TestPythonPathHookPatch:
     def test_patch_detection_without_dbruntime(self) -> None:
         """Test that patch gracefully handles missing dbruntime."""
-        from dbx_patch.patches.python_path_hook_patch import patch_python_path_hook
+        from dbx_patch.patches.python_path_hook_patch import PythonPathHookPatch
 
         # This should not raise an error even if dbruntime is not available
-        result = patch_python_path_hook(verbose=False)
+        result = PythonPathHookPatch().patch()
 
         # Should indicate hook was not found
         assert hasattr(result, "hook_found")
 
     def test_is_patched_initial_state(self) -> None:
         """Test initial patch state."""
-        from dbx_patch.patches.python_path_hook_patch import is_patched
+        from dbx_patch.patches.python_path_hook_patch import PythonPathHookPatch
 
         # Just verify it returns a boolean
-        assert isinstance(is_patched(), bool)
+        assert isinstance(PythonPathHookPatch().is_applied(), bool)
 
     def test_get_preserved_editable_paths(self) -> None:
         """Test getting preserved editable paths."""
-        from dbx_patch.patches.python_path_hook_patch import get_preserved_editable_paths
+        from dbx_patch.patches.python_path_hook_patch import PythonPathHookPatch
 
-        paths = get_preserved_editable_paths()
+        paths = PythonPathHookPatch().get_editable_paths()
         assert isinstance(paths, set)
 
 
 class TestApplyPatch:
     def test_check_patch_status(self) -> None:
         """Test checking patch status."""
-        from dbx_patch.patch_dbx import check_patch_status
         from dbx_patch.models import StatusResult
+        from dbx_patch.patch_dbx import check_patch_status
 
-        status = check_patch_status(verbose=False)
+        status = check_patch_status()
 
         assert isinstance(status, StatusResult)
         assert hasattr(status, "wsfs_hook_patched")
@@ -199,8 +199,8 @@ class TestApplyPatch:
 
     def test_patch_dbx_structure(self) -> None:
         """Test that patch_dbx returns correct structure."""
-        from dbx_patch.patch_dbx import patch_dbx
         from dbx_patch.models import ApplyPatchesResult
+        from dbx_patch.patch_dbx import patch_dbx
 
         result = patch_dbx(force_refresh=False)
 
@@ -219,10 +219,10 @@ class TestApplyPatch:
 
     def test_verify_editable_installs_structure(self) -> None:
         """Test that verify_editable_installs returns correct structure."""
-        from dbx_patch.patch_dbx import verify_editable_installs
         from dbx_patch.models import VerifyResult
+        from dbx_patch.patch_dbx import verify_editable_installs
 
-        result = verify_editable_installs(verbose=False)
+        result = verify_editable_installs()
 
         assert isinstance(result, VerifyResult)
         assert hasattr(result, "editable_paths")
@@ -251,7 +251,7 @@ class TestIntegration:
         pth_file.write_text(f"{test_pkg}\n")
 
         # Process .pth files
-        result = process_all_pth_files(verbose=False)
+        result = process_all_pth_files()
 
         # Should have found our editable path
         assert result.total_editable_paths >= 1
@@ -261,6 +261,6 @@ class TestIntegration:
         assert str(test_pkg) in sys.path
 
         # Verify installation
-        verification = verify_editable_installs(verbose=False)
+        verification = verify_editable_installs()
         assert str(test_pkg) in verification.editable_paths
         assert str(test_pkg) in verification.paths_in_sys_path

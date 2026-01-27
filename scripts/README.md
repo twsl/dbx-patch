@@ -216,28 +216,28 @@ utils.do_something()
 
 ```python
 from dbx_patch.pth_processor import process_all_pth_files
-from dbx_patch.patches.wsfs_import_hook_patch import patch_wsfs_import_hook
-from dbx_patch.patches.autoreload_hook_patch import patch_autoreload_hook
+from dbx_patch.patches.wsfs_import_hook_patch import WsfsImportHookPatch
+from dbx_patch.patches.autoreload_hook_patch import AutoreloadHookPatch
 
 # Process .pth files
 process_all_pth_files(force=True, verbose=True)
 
 # Apply specific patches
-patch_wsfs_import_hook(verbose=True)
-patch_autoreload_hook(verbose=True)
+WsfsImportHookPatch().patch()
+AutoreloadHookPatch().patch()
 ```
 
 ### Refresh After Installing New Packages
 
 ```python
 from dbx_patch.pth_processor import process_all_pth_files
-from dbx_patch.patches.wsfs_import_hook_patch import refresh_editable_paths
+from dbx_patch.patches.wsfs_import_hook_patch import WsfsImportHookPatch
 
 # Re-process .pth files
 process_all_pth_files(force=True)
 
 # Refresh cached paths in hooks
-refresh_editable_paths()
+WsfsImportHookPatch().refresh_paths()
 ```
 
 ---

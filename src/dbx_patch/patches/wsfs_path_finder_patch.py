@@ -10,191 +10,152 @@ These path finders are in sys.meta_path and prevent imports of notebook files.
 We verify they don't interfere with editable package imports.
 """
 
-import contextlib
 from typing import Any
 
+from dbx_patch.base_patch import BaseVerification
 from dbx_patch.models import PatchResult
 from dbx_patch.utils.runtime_version import is_runtime_version_gte
 
-_PATCH_APPLIED = False
-_ORIGINAL_FIND_SPEC: Any = None
 
-# Module-level cached logger
-_logger: Any = None
+class WsfsPathFinderVerification(BaseVerification):
+    """Verification for workspace path finder compatibility.
 
-
-def _get_logger() -> Any:
-    """Get module-level cached logger instance."""
-    global _logger
-    if _logger is None:
-        with contextlib.suppress(Exception):
-            from dbx_patch.utils.logger import get_logger
-
-            _logger = get_logger()
-    return _logger
-
-
-def patch_wsfs_path_finder() -> PatchResult:
-    """Verify workspace path finder doesn't block editable imports.
-
-    Automatically detects runtime version and verifies appropriate finder:
-    - DBR < 18.0: Verifies WsfsPathFinder
-    - DBR >= 18.0: Verifies _WorkspacePathFinder
-
-    These path finders only block notebook file imports, not Python packages,
-    so they're already compatible with editable installs.
-
-    Returns:
-        PatchResult with operation details
+    Verifies that workspace path finders don't interfere with editable imports.
     """
-    global _PATCH_APPLIED, _ORIGINAL_FIND_SPEC
-    logger = _get_logger()
 
-    if _PATCH_APPLIED:
-        if logger:
-            logger.info("Workspace path finder already verified.")
-        return PatchResult(
-            success=True,
-            already_patched=True,
-            hook_found=True,
-        )
+    def __init__(self, verbose: bool = True) -> None:
+        """Initialize the verification.
 
-    try:
-        # Determine which version to verify based on runtime version
-        use_modern = is_runtime_version_gte(18, 0)
+        Args:
+            verbose: Enable verbose logging
+        """
+        super().__init__(verbose)
+        self._original_find_spec: Any = None
 
-        if use_modern:
-            # Verify modern _WorkspacePathFinder (DBR >= 18.0)
+    def verify(self) -> PatchResult:
+        """Verify workspace path finder doesn't block editable imports.
+
+        Returns:
+            PatchResult with operation details
+        """
+        logger = self._get_logger()
+
+        if self._is_verified:
             if logger:
-                logger.info("Detected DBR >= 18.0, verifying modern _WorkspacePathFinder")
+                logger.info("Workspace path finder already verified.")
+            return PatchResult(
+                success=True,
+                already_patched=True,
+                hook_found=True,
+            )
 
-            try:
-                from dbruntime.workspace_import_machinery import (  # ty:ignore[unresolved-import]
-                    _WorkspacePathFinder,
-                )
+        try:
+            # Determine which version to verify based on runtime version
+            use_modern = is_runtime_version_gte(18, 0)
 
+            if use_modern:
+                # Verify modern _WorkspacePathFinder (DBR >= 18.0)
                 if logger:
-                    logger.info("Verifying modern _WorkspacePathFinder compatibility...")
+                    logger.info("Detected DBR >= 18.0, verifying modern _WorkspacePathFinder")
 
-                # Save original method (for potential future enhancements)
-                _ORIGINAL_FIND_SPEC = _WorkspacePathFinder.find_spec
+                try:
+                    from dbruntime.workspace_import_machinery import (  # type: ignore[import-not-found]
+                        _WorkspacePathFinder,
+                    )
 
+                    if logger:
+                        logger.info("Verifying modern _WorkspacePathFinder compatibility...")
+
+                    # Save original method (for potential future enhancements)
+                    self._original_find_spec = _WorkspacePathFinder.find_spec
+
+                    if logger:
+                        logger.success("Modern _WorkspacePathFinder verified - compatible with editable installs!")
+                        with logger.indent():
+                            logger.info("_WorkspacePathFinder only blocks notebook files, not Python packages")
+
+                    result = PatchResult(
+                        success=True,
+                        already_patched=False,
+                        hook_found=True,
+                    )
+
+                except ImportError as e:
+                    result = PatchResult(
+                        success=False,
+                        already_patched=False,
+                        hook_found=False,
+                        error=f"Modern module not found: {e}",
+                    )
+            else:
+                # Verify legacy WsfsPathFinder (DBR < 18.0)
                 if logger:
-                    logger.success("Modern _WorkspacePathFinder verified - compatible with editable installs!")
+                    logger.info("Detected DBR < 18.0, verifying legacy WsfsPathFinder")
+
+                try:
+                    from dbruntime.WsfsPathFinder import WsfsPathFinder  # type: ignore[import-not-found]
+
+                    if logger:
+                        logger.info("Verifying legacy WsfsPathFinder compatibility...")
+
+                    # Save original method (for potential future enhancements)
+                    self._original_find_spec = WsfsPathFinder.find_spec
+
+                    if logger:
+                        logger.success("Legacy WsfsPathFinder verified - compatible with editable installs!")
+                        with logger.indent():
+                            logger.info("WsfsPathFinder only blocks notebook files, not Python packages")
+
+                    result = PatchResult(
+                        success=True,
+                        already_patched=False,
+                        hook_found=True,
+                    )
+
+                except ImportError as e:
+                    result = PatchResult(
+                        success=False,
+                        already_patched=False,
+                        hook_found=False,
+                        error=f"Legacy module not found: {e}",
+                    )
+
+            if result.success:
+                self._is_verified = True
+                if logger:
                     with logger.indent():
-                        logger.info("_WorkspacePathFinder only blocks notebook files, not Python packages")
+                        logger.info("No modifications needed")
 
-                result = PatchResult(
-                    success=True,
-                    already_patched=False,
-                    hook_found=True,
-                )
+            return result
 
-            except ImportError as e:
-                result = PatchResult(
-                    success=False,
-                    already_patched=False,
-                    hook_found=False,
-                    error=f"Modern module not found: {e}",
-                )
-        else:
-            # Verify legacy WsfsPathFinder (DBR < 18.0)
+        except ImportError as e:
             if logger:
-                logger.info("Detected DBR < 18.0, verifying legacy WsfsPathFinder")
-
-            try:
-                from dbruntime.WsfsPathFinder import WsfsPathFinder  # ty:ignore[unresolved-import]
-
-                if logger:
-                    logger.info("Verifying legacy WsfsPathFinder compatibility...")
-
-                # Save original method (for potential future enhancements)
-                _ORIGINAL_FIND_SPEC = WsfsPathFinder.find_spec
-
-                if logger:
-                    logger.success("Legacy WsfsPathFinder verified - compatible with editable installs!")
-                    with logger.indent():
-                        logger.info("WsfsPathFinder only blocks notebook files, not Python packages")
-
-                result = PatchResult(
-                    success=True,
-                    already_patched=False,
-                    hook_found=True,
-                )
-
-            except ImportError as e:
-                result = PatchResult(
-                    success=False,
-                    already_patched=False,
-                    hook_found=False,
-                    error=f"Legacy module not found: {e}",
-                )
-
-        if result.success:
-            _PATCH_APPLIED = True
-            if logger:
+                logger.warning(f"Could not import workspace path finder: {e}")
                 with logger.indent():
-                    logger.info("No modifications needed")
+                    logger.info("This is normal if not running in Databricks environment.")
+            return PatchResult(
+                success=False,
+                already_patched=False,
+                hook_found=False,
+                error=str(e),
+            )
+        except Exception as e:
+            if logger:
+                logger.error(f"Error verifying workspace path finder: {e}")  # noqa: TRY400
+                import traceback
 
-        return result
+                logger.debug(traceback.format_exc())
+            return PatchResult(
+                success=False,
+                already_patched=False,
+                hook_found=True,
+                error=str(e),
+            )
 
-    except ImportError as e:
-        if logger:
-            logger.warning(f"Could not import workspace path finder: {e}")
-            with logger.indent():
-                logger.info("This is normal if not running in Databricks environment.")
-        return PatchResult(
-            success=False,
-            already_patched=False,
-            hook_found=False,
-            error=str(e),
-        )
-    except Exception as e:
-        if logger:
-            logger.error(f"Error verifying workspace path finder: {e}")  # noqa: TRY400
-            import traceback
+    def is_verified(self) -> bool:
+        """Check if the WsfsPathFinder has been verified.
 
-            logger.debug(traceback.format_exc())
-        return PatchResult(
-            success=False,
-            already_patched=False,
-            hook_found=True,
-            error=str(e),
-        )
-
-
-def unpatch_wsfs_path_finder(verbose: bool = True) -> bool:
-    """Remove the patch and restore original workspace path finder behavior.
-
-    Since no actual patching is performed (only verification), this simply
-    resets the patch status flag.
-
-    Args:
-        verbose: If True, print status messages
-
-    Returns:
-        True if unpatch was successful, False otherwise
-    """
-    global _PATCH_APPLIED
-    logger = _get_logger()
-
-    if not _PATCH_APPLIED:
-        if logger:
-            logger.info("No patch to remove.")
-        return False
-
-    # Since we didn't actually modify anything, just reset the flag
-    _PATCH_APPLIED = False
-
-    if logger:
-        logger.success("Workspace path finder patch status reset.")
-    return True
-
-
-def is_patched() -> bool:
-    """Check if the WsfsPathFinder patch is currently applied.
-
-    Returns:
-        True if patched, False otherwise
-    """
-    return _PATCH_APPLIED
+        Returns:
+            True if verified, False otherwise
+        """
+        return self._is_verified

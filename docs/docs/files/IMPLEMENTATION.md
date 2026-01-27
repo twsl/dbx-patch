@@ -151,10 +151,15 @@ _apply_dbx_patch()
 
 ```python
 def patch_dbx(force_refresh=False):
+    from dbx_patch.patches.sys_path_init_patch import SysPathInitPatch
+    from dbx_patch.patches.wsfs_import_hook_patch import WsfsImportHookPatch
+    from dbx_patch.patches.python_path_hook_patch import PythonPathHookPatch
+    from dbx_patch.patches.autoreload_hook_patch import AutoreloadHookPatch
+
     results = {}
 
     # Step 1: Patch sys_path_init to auto-process .pth files
-    results['sys_path_init'] = patch_sys_path_init(verbose=verbose)
+    results['sys_path_init'] = SysPathInitPatch().patch()
 
     # Step 2: Process .pth files immediately
     results['pth_processing'] = process_all_pth_files(
@@ -163,13 +168,13 @@ def patch_dbx(force_refresh=False):
     )
 
     # Step 3: Patch WsfsImportHook to allow editable imports
-    results['wsfs_hook'] = patch_wsfs_import_hook(verbose=verbose)
+    results['wsfs_hook'] = WsfsImportHookPatch().patch()
 
     # Step 4: Patch PythonPathHook to preserve paths
-    results['path_hook'] = patch_python_path_hook(verbose=verbose)
+    results['path_hook'] = PythonPathHookPatch().patch()
 
     # Step 5: Patch AutoreloadDiscoverabilityHook to allow editable imports
-    results['autoreload_hook'] = patch_autoreload_hook(verbose=verbose)
+    results['autoreload_hook'] = AutoreloadHookPatch().patch()
 
     return results
 ```
@@ -283,41 +288,55 @@ def process_pth_file(pth_file_path):
 - Auto-processes .pth files during sys.path updates
 - More elegant than manual processing
 
-**Key Functions:**
+**Key Classes:**
 
-- `patch_sys_path_init(verbose=True)` - Apply the patch
-- `unpatch_sys_path_init(verbose=True)` - Remove the patch
-- `is_patched()` - Check if patched
+- `SysPathInitPatch` - Singleton class for managing the sys_path_init patch
+
+**Key Methods:**
+
+- `SysPathInitPatch().patch()` - Apply the patch (returns PatchResult)
+- `SysPathInitPatch().remove()` - Remove the patch (returns bool)
+- `SysPathInitPatch().is_applied()` - Check if patched (returns bool)
 
 **Patching Strategy:**
 
 ```python
-def patch_sys_path_init(verbose=True):
-    try:
-        import sys_path_init
-    except ImportError:
-        # Not in Databricks environment
-        return {'success': False, 'reason': 'not_in_databricks'}
+from dbx_patch.patches.sys_path_init_patch import SysPathInitPatch
 
-    # Store original function
-    original_patch_sys_path = sys_path_init.patch_sys_path_with_developer_paths
+class SysPathInitPatch(BasePatch):
+    """Patch sys_path_init to auto-process .pth files."""
 
-    # Create patched function
-    def patched_patch_sys_path_with_developer_paths():
-        # First call original
-        original_patch_sys_path()
-
-        # Then process .pth files
+    def patch(self) -> PatchResult:
         try:
-            from dbx_patch.pth_processor import process_all_pth_files
-            process_all_pth_files(force=False, verbose=False)
-        except Exception:
-            pass  # Fail silently
+            import sys_path_init
+        except ImportError:
+            # Not in Databricks environment
+            return PatchResult(success=False, function_found=False)
 
-    # Apply patch
-    sys_path_init.patch_sys_path_with_developer_paths = patched_patch_sys_path_with_developer_paths
+        # Store original function
+        self._original_target = sys_path_init.patch_sys_path_with_developer_paths
 
-    return {'success': True}
+        # Create patched function
+        def patched_patch_sys_path_with_developer_paths():
+            # First call original
+            self._original_target()
+
+            # Then process .pth files
+            try:
+                from dbx_patch.pth_processor import process_all_pth_files
+                process_all_pth_files(force=False, verbose=False)
+            except Exception:
+                pass  # Fail silently
+
+        # Apply patch
+        sys_path_init.patch_sys_path_with_developer_paths = patched_patch_sys_path_with_developer_paths
+        self._is_applied = True
+
+        return PatchResult(success=True)
+
+# Usage
+patch = SysPathInitPatch()
+result = patch.patch()
 ```
 
 **Why This Patch Matters:**
@@ -335,18 +354,27 @@ Without this patch, .pth files are only processed once at startup. With this pat
 - Gracefully handles missing dbruntime module
 - Provides refresh mechanism for new installs
 
-**Key Functions:**
+**Key Classes:**
 
-- `patch_wsfs_import_hook(verbose=True)` - Apply import hook patch
-- `unpatch_wsfs_import_hook(verbose=True)` - Remove patch
-- `refresh_editable_paths()` - Refresh cached paths after new installs
-- `is_patched()` - Check if patched
-- `detect_editable_paths()` - Get current editable paths
+- `WsfsImportHookPatch` - Singleton class for managing the workspace import hook patch
+
+**Key Methods:**
+
+- `WsfsImportHookPatch().patch()` - Apply import hook patch (returns PatchResult)
+- `WsfsImportHookPatch().remove()` - Remove patch (returns bool)
+- `WsfsImportHookPatch().refresh_paths()` - Refresh cached paths after new installs (returns int)
+- `WsfsImportHookPatch().is_applied()` - Check if patched (returns bool)
+- `WsfsImportHookPatch().get_editable_paths()` - Get current editable paths (returns set)
 
 **Patching Strategy:**
 
 ```python
-def patch_wsfs_import_hook(verbose=True):
+from dbx_patch.patches.wsfs_import_hook_patch import WsfsImportHookPatch
+
+class WsfsImportHookPatch(BasePatch):
+    """Patch workspace import machinery to allow editable imports."""
+
+    def patch(self) -> PatchResult:
     try:
         from dbruntime.wsfs_import_hook import WsfsImportHook
     except ImportError:
@@ -423,18 +451,27 @@ def patch_wsfs_import_hook(verbose=True):
 - Prevents path loss during notebook/directory changes
 - Provides refresh mechanism for new installs
 
-**Key Functions:**
+**Key Classes:**
 
-- `patch_python_path_hook(verbose=True)` - Apply path hook patch
-- `unpatch_python_path_hook(verbose=True)` - Remove patch
-- `refresh_editable_paths()` - Refresh cached paths
-- `is_patched()` - Check if patched
-- `detect_editable_paths()` - Get current editable paths
+- `PythonPathHookPatch` - Singleton class for managing the PythonPathHook patch
+
+**Key Methods:**
+
+- `PythonPathHookPatch().patch()` - Apply path hook patch (returns PatchResult)
+- `PythonPathHookPatch().remove()` - Remove patch (returns bool)
+- `PythonPathHookPatch().refresh_paths()` - Refresh cached paths (returns int)
+- `PythonPathHookPatch().is_applied()` - Check if patched (returns bool)
+- `PythonPathHookPatch().get_editable_paths()` - Get current editable paths (returns set)
 
 **Implementation:**
 
 ```python
-def patch_python_path_hook(verbose=True):
+from dbx_patch.patches.python_path_hook_patch import PythonPathHookPatch
+
+class PythonPathHookPatch(BasePatch):
+    """Patch PythonPathHook to preserve editable paths."""
+
+    def patch(self) -> PatchResult:
     try:
         from dbruntime.pythonPathHook import PythonPathHook
     except ImportError:
@@ -1146,20 +1183,17 @@ This ensures that:
 If you encounter issues or have improvements:
 
 1. **Check existing documentation:**
-
    - Review [The Timing Problem](#the-timing-problem) section for timing-related issues
    - Check tests for expected behavior patterns
    - Review implementation for similar edge cases
 
 2. **Report issues:**
-
    - Include Databricks runtime version
    - Provide minimal reproducible example
    - Include output from check_sitecustomize_status() and verify_editable_installs()
    - Share sys.path and package installation details
 
 3. **Contribute improvements:**
-
    - Add tests for new functionality
    - Update documentation (this file, README, docstrings)
    - Follow existing code style and patterns

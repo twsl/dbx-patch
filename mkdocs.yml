@@ -6,6 +6,11 @@ copyright: Copyright &copy; 2025 twsl
 
 nav:
   - Home: index.md
+  - Getting Started: docs/files/getting-started.md
+  - Architecture: docs/files/architecture.md
+  - Implementation: docs/files/implementation.md
+  - Solution Guide: docs/files/solution-guide.md
+  - Analysis: docs/files/editable-install-analysis.md
   - API: $api/dbx_patch.***
   - Examples: notebooks/index.md
 

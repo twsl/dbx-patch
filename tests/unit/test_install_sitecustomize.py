@@ -27,7 +27,7 @@ class TestInstallSitecustomize:
 
         with patch("dbx_patch.install_sitecustomize.get_site_packages_path", return_value=temp_site_packages):
             # Install without restart (to avoid ImportError in tests)
-            result = install_sitecustomize(verbose=False, restart_python=False)
+            result = install_sitecustomize(restart_python=False)
             assert result is True
 
         # Check that sitecustomize.py was created
@@ -48,11 +48,11 @@ class TestInstallSitecustomize:
 
         with patch("dbx_patch.install_sitecustomize.get_site_packages_path", return_value=temp_site_packages):
             # Should fail without force
-            result = install_sitecustomize(verbose=False, restart_python=False, force=False)
+            result = install_sitecustomize(restart_python=False, force=False)
             assert result is False
 
             # Should succeed with force
-            result = install_sitecustomize(verbose=False, restart_python=False, force=True)
+            result = install_sitecustomize(restart_python=False, force=True)
             assert result is True
 
     def test_install_sitecustomize_with_backup(self, temp_site_packages: Path) -> None:
@@ -64,7 +64,7 @@ class TestInstallSitecustomize:
         sitecustomize_path.write_text(original_content)
 
         with patch("dbx_patch.install_sitecustomize.get_site_packages_path", return_value=temp_site_packages):
-            result = install_sitecustomize(verbose=False, restart_python=False, force=True)
+            result = install_sitecustomize(restart_python=False, force=True)
             assert result is True
 
         # Check backup was created
@@ -88,7 +88,7 @@ class TestInstallSitecustomize:
             patch.object(builtins, "dbutils", mock_dbutils, create=True),
         ):
             # This should call dbutils.library.restartPython()
-            install_sitecustomize(verbose=False, restart_python=True)
+            install_sitecustomize(restart_python=True)
             # The function should try to restart
             mock_library.restartPython.assert_called_once()
 
@@ -98,7 +98,7 @@ class TestInstallSitecustomize:
 
         with patch("dbx_patch.install_sitecustomize.get_site_packages_path", return_value=temp_site_packages):
             # Should complete successfully even without dbutils
-            result = install_sitecustomize(verbose=False, restart_python=True)
+            result = install_sitecustomize(restart_python=True)
             assert result is True
 
     def test_install_sitecustomize_restart_python_false(self, temp_site_packages: Path) -> None:
@@ -116,7 +116,7 @@ class TestInstallSitecustomize:
             patch("dbx_patch.install_sitecustomize.get_site_packages_path", return_value=temp_site_packages),
             patch.object(builtins, "dbutils", mock_dbutils, create=True),
         ):
-            result = install_sitecustomize(verbose=False, restart_python=False)
+            result = install_sitecustomize(restart_python=False)
             assert result is True
             # restartPython should NOT have been called
             mock_library.restartPython.assert_not_called()
@@ -127,15 +127,15 @@ class TestInstallSitecustomize:
 
         with patch("dbx_patch.install_sitecustomize.get_site_packages_path", return_value=temp_site_packages):
             # Initially not installed
-            status = check_sitecustomize_status(verbose=False)
+            status = check_sitecustomize_status()
             assert status.installed is False
             assert status.is_dbx_patch is False
 
             # Install it
-            install_sitecustomize(verbose=False, restart_python=False)
+            install_sitecustomize(restart_python=False)
 
             # Now should be installed
-            status = check_sitecustomize_status(verbose=False)
+            status = check_sitecustomize_status()
             assert status.installed is True
             assert status.is_dbx_patch is True
 
@@ -145,13 +145,13 @@ class TestInstallSitecustomize:
 
         with patch("dbx_patch.install_sitecustomize.get_site_packages_path", return_value=temp_site_packages):
             # Install first
-            install_sitecustomize(verbose=False, restart_python=False)
+            install_sitecustomize(restart_python=False)
 
             sitecustomize_path = temp_site_packages / "sitecustomize.py"
             assert sitecustomize_path.exists()
 
             # Uninstall
-            result = uninstall_sitecustomize(verbose=False)
+            result = uninstall_sitecustomize()
             assert result is True
             assert not sitecustomize_path.exists()
 
@@ -166,10 +166,10 @@ class TestInstallSitecustomize:
 
         with patch("dbx_patch.install_sitecustomize.get_site_packages_path", return_value=temp_site_packages):
             # Install (will backup original)
-            install_sitecustomize(verbose=False, restart_python=False, force=True)
+            install_sitecustomize(restart_python=False, force=True)
 
             # Uninstall (should restore backup)
-            result = uninstall_sitecustomize(verbose=False)
+            result = uninstall_sitecustomize()
             assert result is True
 
             # Original content should be restored
@@ -186,5 +186,4 @@ class TestInstallSitecustomize:
         assert "dbx-patch" in content
         assert "_apply_dbx_patch" in content
         assert "patch_dbx" in content
-        assert "verbose=False" in content
         assert "force_refresh=False" in content
