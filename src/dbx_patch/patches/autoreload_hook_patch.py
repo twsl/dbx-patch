@@ -5,8 +5,17 @@ imports from editable install paths. The autoreload hook wraps builtins.__import
 and only allows imports from specific paths (like /Workspace). We need to add
 editable install paths to this allowlist.
 
-Additionally, we patch builtins.__import__ itself to ensure editable paths work
-even when called through the autoreload hook's original import reference.
+Environment Variables:
+    DBX_PATCH_DEBUG_IMPORTS: Set to '1', 'true', or 'yes' to enable extremely verbose
+        import tracing by patching builtins.__import__. This logs every single import
+        that happens in the Python process and should only be used for debugging
+        import-related issues with editable installs.
+
+Example:
+            import os
+            os.environ['DBX_PATCH_DEBUG_IMPORTS'] = '1'
+            from dbx_patch import patch_dbx
+            patch_dbx()
 """
 
 import builtins
@@ -103,13 +112,21 @@ class AutoreloadHookPatch(BasePatch):
         """
         logger = self._get_logger()
 
-        # Patch builtins.__import__ for debug logging if in debug mode
-        if logger and logger._logger.isEnabledFor(logging.DEBUG) and not self._import_patch_applied:
-            logger.info("Debug logging enabled - patching builtins.__import__ for debug logging...")
+        # Patch builtins.__import__ for debug logging ONLY if explicitly enabled via env var
+        # This is extremely verbose and should only be used for debugging import issues
+        import os
+
+        if (
+            os.environ.get("DBX_PATCH_DEBUG_IMPORTS", "").lower() in ("1", "true", "yes")
+            and not self._import_patch_applied
+        ):
+            if logger:
+                logger.info("DBX_PATCH_DEBUG_IMPORTS enabled - patching builtins.__import__ for import tracing...")
             self._original_builtins_import = builtins.__import__
             builtins.__import__ = self._patched_builtins_import  # type: ignore[assignment]
             self._import_patch_applied = True
-            logger.info("builtins.__import__ patched for debug logging")
+            if logger:
+                logger.info("builtins.__import__ patched for import tracing (this will be very verbose!)")
 
         if self._is_applied:
             if logger:

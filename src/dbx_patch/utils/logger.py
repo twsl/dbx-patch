@@ -18,6 +18,10 @@ class PatchLogger:
     Uses composition with logging.Logger and only logs when:
     - DBX_PATCH_ENABLED env var is set to true
     - DBX_PATCH_LOG_LEVEL env var is set to appropriate level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+
+    Environment Variables:
+        DBX_PATCH_ENABLED: Set to '1', 'true', or 'yes' to enable logging
+        DBX_PATCH_LOG_LEVEL: Set to DEBUG, INFO, WARNING, ERROR, or CRITICAL (default: ERROR)
     """
 
     def __init__(self, name: str = "dbx-patch") -> None:
@@ -47,9 +51,14 @@ class PatchLogger:
             # Add console handler
             handler = logging.StreamHandler(sys.stdout)
             handler.setLevel(level)
-            formatter = logging.Formatter("%(message)s")
-            handler.setFormatter(formatter)
+
+            if self._logger.hasHandlers():
+                self._logger.handlers.clear()
+
             self._logger.addHandler(handler)
+
+            # Prevent propagation to root logger to avoid duplicate messages
+            self._logger.propagate = False
 
         self._indent_level = 0
         self._indent_char = "  "
