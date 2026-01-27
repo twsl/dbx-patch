@@ -29,16 +29,16 @@ def main() -> None:
     verbose = not args.quiet
 
     if args.apply:
-        apply_all_patches(verbose=verbose)
+        apply_all_patches()
     elif args.verify:
-        verify_editable_installs(verbose=verbose)
+        verify_editable_installs()
     elif args.status:
-        check_patch_status(verbose=verbose)
+        check_patch_status()
     elif args.remove:
-        remove_all_patches(verbose=verbose)
+        remove_all_patches()
     else:
         # Default: apply patches
-        apply_all_patches(verbose=verbose)
+        apply_all_patches()
 
 
 if __name__ == "__main__":

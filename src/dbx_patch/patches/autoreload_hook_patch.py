@@ -100,15 +100,12 @@ def _patched_builtins_import(name: str, *args: Any, **kwargs: Any) -> Any:
         return result
 
 
-def patch_autoreload_hook(verbose: bool = True) -> PatchResult:
+def patch_autoreload_hook() -> PatchResult:
     """Patch the autoreload discoverability hook to allow editable imports.
 
     This function:
     1. Registers an allowlist check for file_module_utils
     2. Optionally patches builtins.__import__ for debug logging
-
-    Args:
-        verbose: If True, print status messages
 
     Returns:
         PatchResult with operation details

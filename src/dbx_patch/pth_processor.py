@@ -233,14 +233,13 @@ def add_paths_to_sys_path(paths: list[str], prepend: bool = False) -> int:
     return added_count
 
 
-def process_all_pth_files(force: bool = False, verbose: bool = True) -> PthProcessingResult:
+def process_all_pth_files(force: bool = False) -> PthProcessingResult:
     """Process all .pth files in all site-packages directories.
 
     This is the main entry point for fixing editable install imports.
 
     Args:
         force: If True, re-add paths even if they're already in sys.path
-        verbose: If True, print status messages
 
     Returns:
         PthProcessingResult with processing details

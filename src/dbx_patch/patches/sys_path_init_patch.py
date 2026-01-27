@@ -59,7 +59,7 @@ def create_patched_patch_sys_path(original_function: Callable[[], None]) -> Call
                 logger.debug("sys_path_init: Processing .pth files for editable installs")
 
             # Process quietly to avoid verbose output during initialization
-            result = process_all_pth_files(force=False, verbose=False)
+            result = process_all_pth_files(force=False)
 
             if logger:
                 logger.debug(f"sys_path_init: Added {result.paths_added} editable paths to sys.path")
@@ -70,14 +70,11 @@ def create_patched_patch_sys_path(original_function: Callable[[], None]) -> Call
     return patched_patch_sys_path_with_developer_paths
 
 
-def patch_sys_path_init(verbose: bool = True) -> PatchResult:
+def patch_sys_path_init() -> PatchResult:
     """Patch sys_path_init.patch_sys_path_with_developer_paths to process .pth files.
 
     This function monkey-patches the Databricks sys.path initialization to
     automatically include editable install paths from .pth files.
-
-    Args:
-        verbose: If True, print status messages
 
     Returns:
         PatchResult with operation details

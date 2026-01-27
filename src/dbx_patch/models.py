@@ -39,6 +39,7 @@ class ApplyPatchesResult:
     sys_path_init_patch: PatchResult | None
     pth_processing: PthProcessingResult | None
     wsfs_hook_patch: PatchResult | None
+    wsfs_path_finder_patch: PatchResult | None
     python_path_hook_patch: PatchResult | None
     autoreload_hook_patch: PatchResult | None
     overall_success: bool
@@ -52,6 +53,7 @@ class VerifyResult:
     editable_paths: list[str]
     paths_in_sys_path: list[str]
     wsfs_hook_patched: bool
+    wsfs_path_finder_patched: bool
     python_path_hook_patched: bool
     autoreload_hook_patched: bool
     importable_packages: list[str]
@@ -64,6 +66,7 @@ class StatusResult:
 
     sys_path_init_patched: bool
     wsfs_hook_patched: bool
+    wsfs_path_finder_patched: bool
     python_path_hook_patched: bool
     autoreload_hook_patched: bool
     editable_paths_count: int
@@ -76,6 +79,7 @@ class RemovePatchesResult:
 
     sys_path_init_unpatched: bool
     wsfs_hook_unpatched: bool
+    wsfs_path_finder_unpatched: bool
     python_path_hook_unpatched: bool
     autoreload_hook_unpatched: bool
     success: bool

@@ -128,61 +128,6 @@ def create_patched_is_user_import(original_method: Callable[..., bool]) -> Calla
     return patched_is_user_import
 
 
-def _patch_legacy_wsfs_import_hook(logger: Any, editable_paths: set[str]) -> PatchResult:
-    """Patch legacy WsfsImportHook (DBR < 18.0).
-
-    Args:
-        logger: Logger instance
-        editable_paths: Set of editable install paths
-
-    Returns:
-        PatchResult with operation details
-    """
-    global _ORIGINAL_IS_USER_IMPORT
-
-    try:
-        from dbruntime.wsfs_import_hook import WsfsImportHook  # ty:ignore[unresolved-import]
-
-        logger.info(f"Patching legacy WsfsImportHook to allow {len(editable_paths)} editable install path(s)...")
-
-        # Save original method
-        _ORIGINAL_IS_USER_IMPORT = WsfsImportHook._WsfsImportHook__is_user_import
-
-        if _ORIGINAL_IS_USER_IMPORT is None:
-            logger.error("Failed to save original method")
-            return PatchResult(
-                success=False,
-                already_patched=False,
-                editable_paths_count=0,
-                editable_paths=[],
-                hook_found=True,
-                error="Failed to save original method",
-            )
-
-        # Create and apply patch
-        patched_method = create_patched_is_user_import(_ORIGINAL_IS_USER_IMPORT)
-        WsfsImportHook._WsfsImportHook__is_user_import = patched_method
-
-        logger.success("Legacy WsfsImportHook patched successfully!")
-        return PatchResult(
-            success=True,
-            already_patched=False,
-            editable_paths_count=len(editable_paths),
-            editable_paths=sorted(editable_paths),
-            hook_found=True,
-        )
-
-    except ImportError as e:
-        return PatchResult(
-            success=False,
-            already_patched=False,
-            editable_paths_count=0,
-            editable_paths=[],
-            hook_found=False,
-            error=f"Legacy module not found: {e}",
-        )
-
-
 def create_patched_is_user_import_v18(original_method: Callable[..., bool]) -> Callable[..., bool]:
     """Create patched version for workspace_import_machinery._WorkspacePathEntryFinder (DBR >= 18.0).
 
@@ -242,66 +187,7 @@ def create_patched_is_user_import_v18(original_method: Callable[..., bool]) -> C
     return patched_is_user_import
 
 
-def _patch_modern_workspace_import_machinery(logger: Any, editable_paths: set[str]) -> PatchResult:
-    """Patch modern workspace_import_machinery (DBR >= 18.0).
-
-    Args:
-        logger: Logger instance
-        editable_paths: Set of editable install paths
-
-    Returns:
-        PatchResult with operation details
-    """
-    global _ORIGINAL_IS_USER_IMPORT
-
-    try:
-        from dbruntime.workspace_import_machinery import (  # ty:ignore[unresolved-import]
-            _WorkspacePathEntryFinder,
-        )
-
-        logger.info(
-            f"Patching modern _WorkspacePathEntryFinder to allow {len(editable_paths)} editable install path(s)..."
-        )
-
-        # Save original method
-        _ORIGINAL_IS_USER_IMPORT = _WorkspacePathEntryFinder._is_user_import
-
-        if _ORIGINAL_IS_USER_IMPORT is None:
-            logger.error("Failed to save original method")
-            return PatchResult(
-                success=False,
-                already_patched=False,
-                editable_paths_count=0,
-                editable_paths=[],
-                hook_found=True,
-                error="Failed to save original method",
-            )
-
-        # Create and apply patch
-        patched_method = create_patched_is_user_import_v18(_ORIGINAL_IS_USER_IMPORT)
-        _WorkspacePathEntryFinder._is_user_import = patched_method
-
-        logger.success("Modern _WorkspacePathEntryFinder patched successfully!")
-        return PatchResult(
-            success=True,
-            already_patched=False,
-            editable_paths_count=len(editable_paths),
-            editable_paths=sorted(editable_paths),
-            hook_found=True,
-        )
-
-    except ImportError as e:
-        return PatchResult(
-            success=False,
-            already_patched=False,
-            editable_paths_count=0,
-            editable_paths=[],
-            hook_found=False,
-            error=f"Modern module not found: {e}",
-        )
-
-
-def patch_wsfs_import_hook(verbose: bool = True) -> PatchResult:
+def patch_wsfs_import_hook() -> PatchResult:
     """Patch workspace import machinery to allow imports from editable install paths.
 
     Automatically detects runtime version and applies appropriate patch:
@@ -312,13 +198,10 @@ def patch_wsfs_import_hook(verbose: bool = True) -> PatchResult:
     1. Detects all editable install paths from .pth files
     2. Monkey-patches the appropriate import hook to allow these paths
 
-    Args:
-        verbose: If True, print status messages
-
     Returns:
         PatchResult with operation details
     """
-    global _PATCH_APPLIED, _EDITABLE_PATHS
+    global _PATCH_APPLIED, _EDITABLE_PATHS, _ORIGINAL_IS_USER_IMPORT
     logger = _get_logger()
 
     if _PATCH_APPLIED:
@@ -340,13 +223,111 @@ def patch_wsfs_import_hook(verbose: bool = True) -> PatchResult:
         use_modern = is_runtime_version_gte(18, 0)
 
         if use_modern:
+            # Patch modern _WorkspacePathEntryFinder (DBR >= 18.0)
             if logger:
                 logger.info("Detected DBR >= 18.0, using modern workspace_import_machinery patch")
-            result = _patch_modern_workspace_import_machinery(logger, _EDITABLE_PATHS)
+
+            try:
+                from dbruntime.workspace_import_machinery import (  # ty:ignore[unresolved-import]
+                    _WorkspacePathEntryFinder,
+                )
+
+                if logger:
+                    logger.info(
+                        f"Patching modern _WorkspacePathEntryFinder to allow {len(_EDITABLE_PATHS)} editable install path(s)..."
+                    )
+
+                # Save original method
+                _ORIGINAL_IS_USER_IMPORT = _WorkspacePathEntryFinder._is_user_import
+
+                if _ORIGINAL_IS_USER_IMPORT is None:
+                    if logger:
+                        logger.error("Failed to save original method")
+                    return PatchResult(
+                        success=False,
+                        already_patched=False,
+                        editable_paths_count=0,
+                        editable_paths=[],
+                        hook_found=True,
+                        error="Failed to save original method",
+                    )
+
+                # Create and apply patch
+                patched_method = create_patched_is_user_import_v18(_ORIGINAL_IS_USER_IMPORT)
+                _WorkspacePathEntryFinder._is_user_import = patched_method
+
+                if logger:
+                    logger.success("Modern _WorkspacePathEntryFinder patched successfully!")
+
+                result = PatchResult(
+                    success=True,
+                    already_patched=False,
+                    editable_paths_count=len(_EDITABLE_PATHS),
+                    editable_paths=sorted(_EDITABLE_PATHS),
+                    hook_found=True,
+                )
+
+            except ImportError as e:
+                result = PatchResult(
+                    success=False,
+                    already_patched=False,
+                    editable_paths_count=0,
+                    editable_paths=[],
+                    hook_found=False,
+                    error=f"Modern module not found: {e}",
+                )
         else:
+            # Patch legacy WsfsImportHook (DBR < 18.0)
             if logger:
                 logger.info("Detected DBR < 18.0, using legacy WsfsImportHook patch")
-            result = _patch_legacy_wsfs_import_hook(logger, _EDITABLE_PATHS)
+
+            try:
+                from dbruntime.wsfs_import_hook import WsfsImportHook  # ty:ignore[unresolved-import]
+
+                if logger:
+                    logger.info(
+                        f"Patching legacy WsfsImportHook to allow {len(_EDITABLE_PATHS)} editable install path(s)..."
+                    )
+
+                # Save original method
+                _ORIGINAL_IS_USER_IMPORT = WsfsImportHook._WsfsImportHook__is_user_import
+
+                if _ORIGINAL_IS_USER_IMPORT is None:
+                    if logger:
+                        logger.error("Failed to save original method")
+                    return PatchResult(
+                        success=False,
+                        already_patched=False,
+                        editable_paths_count=0,
+                        editable_paths=[],
+                        hook_found=True,
+                        error="Failed to save original method",
+                    )
+
+                # Create and apply patch
+                patched_method = create_patched_is_user_import(_ORIGINAL_IS_USER_IMPORT)
+                WsfsImportHook._WsfsImportHook__is_user_import = patched_method
+
+                if logger:
+                    logger.success("Legacy WsfsImportHook patched successfully!")
+
+                result = PatchResult(
+                    success=True,
+                    already_patched=False,
+                    editable_paths_count=len(_EDITABLE_PATHS),
+                    editable_paths=sorted(_EDITABLE_PATHS),
+                    hook_found=True,
+                )
+
+            except ImportError as e:
+                result = PatchResult(
+                    success=False,
+                    already_patched=False,
+                    editable_paths_count=0,
+                    editable_paths=[],
+                    hook_found=False,
+                    error=f"Legacy module not found: {e}",
+                )
 
         if result.success:
             _PATCH_APPLIED = True
@@ -388,8 +369,12 @@ def patch_wsfs_import_hook(verbose: bool = True) -> PatchResult:
         )
 
 
-def unpatch_workspace_import_hook(verbose: bool = False) -> bool:
-    """Remove the patch and restore original WsfsImportHook behavior.
+def unpatch_wsfs_import_hook(verbose: bool = False) -> bool:
+    """Remove the patch and restore original workspace import hook behavior.
+
+    Automatically detects which runtime version was patched and restores accordingly:
+    - DBR < 18.0: Restores WsfsImportHook
+    - DBR >= 18.0: Restores _WorkspacePathEntryFinder
 
     Args:
         verbose: If True, print status messages
@@ -405,21 +390,49 @@ def unpatch_workspace_import_hook(verbose: bool = False) -> bool:
             logger.info("No patch to remove.")
         return False
 
+    if _ORIGINAL_IS_USER_IMPORT is None:
+        if logger:
+            logger.warning("Original method not saved, cannot unpatch.")
+        return False
+
     try:
-        from dbruntime.wsfs_import_hook import WsfsImportHook  # pyright: ignore[reportMissingImports]
+        # Determine which version was patched based on runtime version
+        use_modern = is_runtime_version_gte(18, 0)
 
-        # Restore original method
-        if _ORIGINAL_IS_USER_IMPORT is not None:
-            WsfsImportHook._WsfsImportHook__is_user_import = _ORIGINAL_IS_USER_IMPORT
-            _PATCH_APPLIED = False
+        if use_modern:
+            # Restore modern _WorkspacePathEntryFinder (DBR >= 18.0)
+            try:
+                from dbruntime.workspace_import_machinery import (  # pyright: ignore[reportMissingImports]
+                    _WorkspacePathEntryFinder,
+                )
 
-            if logger:
-                logger.success("WsfsImportHook patch removed successfully.")
-            return True
+                _WorkspacePathEntryFinder._is_user_import = _ORIGINAL_IS_USER_IMPORT
+                _PATCH_APPLIED = False
+
+                if logger:
+                    logger.success("_WorkspacePathEntryFinder patch removed successfully.")
+                return True
+
+            except ImportError as e:
+                if logger:
+                    logger.error(f"Error restoring modern patch: {e}")  # noqa: TRY400
+                return False
         else:
-            if logger:
-                logger.warning("Original method not saved, cannot unpatch.")
-            return False
+            # Restore legacy WsfsImportHook (DBR < 18.0)
+            try:
+                from dbruntime.wsfs_import_hook import WsfsImportHook  # pyright: ignore[reportMissingImports]
+
+                WsfsImportHook._WsfsImportHook__is_user_import = _ORIGINAL_IS_USER_IMPORT
+                _PATCH_APPLIED = False
+
+                if logger:
+                    logger.success("WsfsImportHook patch removed successfully.")
+                return True
+
+            except ImportError as e:
+                if logger:
+                    logger.error(f"Error restoring legacy patch: {e}")  # noqa: TRY400
+                return False
 
     except Exception as e:
         if logger:

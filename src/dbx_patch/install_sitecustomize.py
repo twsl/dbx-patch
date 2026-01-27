@@ -21,6 +21,8 @@ import sys
 from dbx_patch.models import SitecustomizeStatus
 from dbx_patch.utils.logger import PatchLogger
 
+logger = PatchLogger()
+
 
 def get_site_packages_path() -> Path | None:
     """Get the first writable site-packages directory.
@@ -68,7 +70,7 @@ def _apply_dbx_patch() -> None:
         from dbx_patch import apply_all_patches
 
         # Apply silently (no output to avoid cluttering startup)
-        apply_all_patches(verbose=False, force_refresh=False)
+        apply_all_patches(force_refresh=False)
 
     except ImportError:
         # dbx-patch not installed, skip silently
@@ -83,7 +85,7 @@ _apply_dbx_patch()
 """
 
 
-def install_sitecustomize(verbose: bool = True, force: bool = False, restart_python: bool = True) -> bool:
+def install_sitecustomize(force: bool = True, restart_python: bool = True) -> bool:
     """Install sitecustomize.py to auto-apply patches on Python startup.
 
     This is the RECOMMENDED way to use dbx-patch because:
@@ -93,7 +95,6 @@ def install_sitecustomize(verbose: bool = True, force: bool = False, restart_pyt
     4. Works automatically for all Python processes on the cluster
 
     Args:
-        verbose: If True, print status messages
         force: If True, overwrite existing sitecustomize.py
         restart_python: If True, automatically restart Python using dbutils.library.restartPython()
 
@@ -108,8 +109,6 @@ def install_sitecustomize(verbose: bool = True, force: bool = False, restart_pyt
         # Python will restart automatically if running in Databricks
         # After restart, editable installs will work automatically!
     """
-    logger = PatchLogger()
-
     with logger.section("Installing sitecustomize.py for auto-apply"):
         # Find site-packages
         site_packages = get_site_packages_path()
@@ -159,7 +158,7 @@ def install_sitecustomize(verbose: bool = True, force: bool = False, restart_pyt
                     try:
                         logger.info("Restarting Python kernel via dbutils.library.restartPython()...")
 
-                        dbutils.library.restartPython()  # pyright: ignore[reportUndefinedVariable]  # noqa: F821
+                        dbutils.library.restartPython()  # ty:ignore[unresolved-reference]  # noqa: F821
 
                     except Exception:
                         # Not in Databricks environment
@@ -195,16 +194,12 @@ def install_sitecustomize(verbose: bool = True, force: bool = False, restart_pyt
             return False
 
 
-def uninstall_sitecustomize(verbose: bool = True) -> bool:
+def uninstall_sitecustomize() -> bool:
     """Remove the auto-apply sitecustomize.py.
-
-    Args:
-        verbose: If True, print status messages
 
     Returns:
         True if uninstallation succeeded, False otherwise
     """
-    logger = PatchLogger()
     logger.debug("uninstall_sitecustomize() called")
 
     with logger.section("Uninstalling sitecustomize.py"):
@@ -250,16 +245,12 @@ def uninstall_sitecustomize(verbose: bool = True) -> bool:
             return False
 
 
-def check_sitecustomize_status(verbose: bool = True) -> SitecustomizeStatus:
+def check_sitecustomize_status() -> SitecustomizeStatus:
     """Check if sitecustomize.py is installed and active.
-
-    Args:
-        verbose: If True, print status messages
 
     Returns:
         SitecustomizeStatus with installation information
     """
-    logger = PatchLogger()
     logger.debug("check_sitecustomize_status() called")
 
     site_packages = get_site_packages_path()

@@ -13,7 +13,7 @@ from dbx_patch.utils.logger import PatchLogger
 from dbx_patch.utils.runtime_version import get_runtime_version_info
 
 
-def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatchesResult:
+def patch_dbx(force_refresh: bool = False) -> ApplyPatchesResult:
     """Apply all DBX patches for editable install support.
 
     This is the main entry point that:
@@ -27,7 +27,6 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
     and ensures patches are applied in the correct order with proper error handling.
 
     Args:
-        verbose: If True, print detailed status messages (overridden by DBX_PATCH_VERBOSE env var)
         force_refresh: If True, force re-detection of editable paths
 
     Returns:
@@ -40,7 +39,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
     """
     logger = PatchLogger()
     logger.debug("patch_dbx() called")
-    logger.debug(f"verbose={verbose}, force_refresh={force_refresh}")
+    logger.debug(f"force_refresh={force_refresh}")
 
     # Display runtime version info
     version_info = get_runtime_version_info()
@@ -66,7 +65,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
             try:
                 from dbx_patch.pth_processor import process_all_pth_files
 
-                pth_result = process_all_pth_files(force=force_refresh, verbose=verbose)
+                pth_result = process_all_pth_files(force=force_refresh)
 
             except Exception as e:
                 logger.error(f"Failed to process .pth files: {e}")
@@ -79,7 +78,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
             try:
                 from dbx_patch.patches.sys_path_init_patch import patch_sys_path_init
 
-                sys_path_init_result = patch_sys_path_init(verbose=verbose)
+                sys_path_init_result = patch_sys_path_init()
 
             except Exception as e:
                 logger.error(f"Failed to patch sys_path_init: {e}")
@@ -92,7 +91,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
             try:
                 from dbx_patch.patches.wsfs_import_hook_patch import patch_wsfs_import_hook
 
-                wsfs_result = patch_wsfs_import_hook(verbose=verbose)
+                wsfs_result = patch_wsfs_import_hook()
 
             except Exception as e:
                 logger.error(f"Failed to patch workspace import machinery: {e}")
@@ -105,7 +104,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
             try:
                 from dbx_patch.patches.python_path_hook_patch import patch_python_path_hook
 
-                path_hook_result = patch_python_path_hook(verbose=verbose)
+                path_hook_result = patch_python_path_hook()
 
             except Exception as e:
                 logger.error(f"Failed to patch PythonPathHook: {e}")
@@ -118,7 +117,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
             try:
                 from dbx_patch.patches.autoreload_hook_patch import patch_autoreload_hook
 
-                autoreload_result = patch_autoreload_hook(verbose=verbose)
+                autoreload_result = patch_autoreload_hook()
 
             except Exception as e:
                 logger.error(f"Failed to patch AutoreloadDiscoverabilityHook: {e}")
@@ -132,7 +131,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
             try:
                 from dbx_patch.patches.wsfs_path_finder_patch import patch_wsfs_path_finder
 
-                wsfs_path_finder_result = patch_wsfs_path_finder(verbose=verbose)
+                wsfs_path_finder_result = patch_wsfs_path_finder()
 
             except Exception as e:
                 logger.error(f"Failed to verify workspace path finder: {e}")
@@ -146,7 +145,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
             try:
                 from dbx_patch.patches.post_import_hook_verify import verify_post_import_hook
 
-                post_import_hook_result = verify_post_import_hook(verbose=verbose)
+                post_import_hook_result = verify_post_import_hook()
 
             except Exception as e:
                 logger.error(f"Failed to verify PostImportHook: {e}")
@@ -211,7 +210,7 @@ def patch_dbx(verbose: bool = True, force_refresh: bool = False) -> ApplyPatches
         )
 
 
-def patch_and_install(verbose: bool = True, force: bool = False, restart_python: bool = True) -> dict[str, Any]:
+def patch_and_install(force: bool = False, restart_python: bool = True) -> dict[str, Any]:
     """Apply patches AND install sitecustomize.py for automatic patching on startup.
 
     This is the recommended all-in-one method that:
@@ -220,7 +219,6 @@ def patch_and_install(verbose: bool = True, force: bool = False, restart_python:
     3. Optionally restarts Python to activate sitecustomize.py
 
     Args:
-        verbose: If True, print detailed status messages
         force: If True, overwrite existing sitecustomize.py
         restart_python: If True, automatically restart Python via dbutils
 
@@ -233,14 +231,14 @@ def patch_and_install(verbose: bool = True, force: bool = False, restart_python:
         # Patches applied AND sitecustomize.py installed
         # Python will restart automatically if in Databricks
     """
-    logger = PatchLogger(verbose=verbose)
+    logger = PatchLogger()
 
     with logger.section("DBX-Patch: Complete Setup"):
         # Step 1: Apply patches immediately
         logger.info("Phase 1: Applying patches for current session...")
         logger.blank()
 
-        patch_result = patch_dbx(verbose=verbose, force_refresh=False)
+        patch_result = patch_dbx(force_refresh=False)
 
         # Step 2: Install sitecustomize.py for future sessions
         logger.blank()
@@ -249,7 +247,7 @@ def patch_and_install(verbose: bool = True, force: bool = False, restart_python:
 
         from dbx_patch.install_sitecustomize import install_sitecustomize
 
-        install_result = install_sitecustomize(verbose=verbose, force=force, restart_python=restart_python)
+        install_result = install_sitecustomize(force=force, restart_python=restart_python)
 
         return {
             "patch_result": patch_result,
