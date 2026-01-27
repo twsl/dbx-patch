@@ -10,30 +10,32 @@ even when called through the autoreload hook's original import reference.
 """
 
 import builtins
+import contextlib
 import logging
 import os
 import sys
 from typing import Any
 
 from dbx_patch.models import PatchResult
-from dbx_patch.utils.logger import get_logger
 
 _PATCH_APPLIED = False
 _REGISTERED_CHECK: Any = None
 _ORIGINAL_BUILTINS_IMPORT: Any = None
 _IMPORT_PATCH_APPLIED = False
-_CACHED_LOGGER: Any = None
+
+# Module-level cached logger
+_logger: Any = None
 
 
-def _get_cached_logger() -> Any:
-    """Get cached logger instance to avoid import loops."""
-    global _CACHED_LOGGER
-    if _CACHED_LOGGER is None:
-        try:
-            _CACHED_LOGGER = get_logger()
-        except Exception:  # noqa: S110
-            pass  # Fail silently if logger can't be imported
-    return _CACHED_LOGGER
+def _get_logger() -> Any:
+    """Get module-level cached logger instance."""
+    global _logger
+    if _logger is None:
+        with contextlib.suppress(Exception):
+            from dbx_patch.utils.logger import get_logger
+
+            _logger = get_logger()
+    return _logger
 
 
 def _editable_path_check(fname: str) -> bool:
@@ -56,13 +58,10 @@ def _editable_path_check(fname: str) -> bool:
     result = any(fname.startswith(editable_path) for editable_path in editable_paths)
 
     # Debug logging
-    logger = _get_cached_logger()
-    if logger:
-        debug_msg = f"Autoreload check: {fname} -> {result}"
-        if result:
-            matching = [p for p in editable_paths if fname.startswith(p)]
-            debug_msg += f" (matched: {matching[0] if matching else 'unknown'})"
-        logger.debug(debug_msg)
+    logger = _get_logger()
+    if logger and result:
+        matching = [p for p in editable_paths if fname.startswith(p)]
+        logger.debug(f"Autoreload check: {fname} -> {result} (matched: {matching[0] if matching else 'unknown'})")
 
     return result
 
@@ -80,7 +79,7 @@ def _patched_builtins_import(name: str, *args: Any, **kwargs: Any) -> Any:
     Returns:
         The imported module
     """
-    logger = _get_cached_logger()
+    logger = _get_logger()
     if logger:
         logger.debug(f"Importing: {name} (args={args}, kwargs={kwargs})")
 
@@ -115,10 +114,10 @@ def patch_autoreload_hook(verbose: bool = True) -> PatchResult:
         PatchResult with operation details
     """
     global _PATCH_APPLIED, _REGISTERED_CHECK, _ORIGINAL_BUILTINS_IMPORT, _IMPORT_PATCH_APPLIED
-    logger = get_logger()
+    logger = _get_logger()
 
     # Patch builtins.__import__ for debug logging if in debug mode
-    if logger._logger.isEnabledFor(logging.DEBUG) and not _IMPORT_PATCH_APPLIED:
+    if logger and logger._logger.isEnabledFor(logging.DEBUG) and not _IMPORT_PATCH_APPLIED:
         logger.info("Debug logging enabled - patching builtins.__import__ for debug logging...")
         _ORIGINAL_BUILTINS_IMPORT = builtins.__import__
         builtins.__import__ = _patched_builtins_import  # type: ignore[assignment]
@@ -126,7 +125,8 @@ def patch_autoreload_hook(verbose: bool = True) -> PatchResult:
         logger.info("builtins.__import__ patched for debug logging")
 
     if _PATCH_APPLIED:
-        logger.info("Autoreload hook patch already applied.")
+        if logger:
+            logger.info("Autoreload hook patch already applied.")
         from dbx_patch.pth_processor import get_editable_install_paths
 
         editable_paths = get_editable_install_paths()
@@ -140,54 +140,59 @@ def patch_autoreload_hook(verbose: bool = True) -> PatchResult:
 
     try:
         # Import the autoreload module
-        from dbruntime.autoreload.file_module_utils import (  # pyright: ignore[reportMissingImports]
+        from dbruntime.autoreload.file_module_utils import (  # ty:ignore[unresolved-import]
             register_autoreload_allowlist_check,
         )
 
-        logger.info("Autoreload file_module_utils found, registering editable path check...")
+        if logger:
+            logger.info("Autoreload file_module_utils found, registering editable path check...")
 
         from dbx_patch.pth_processor import get_editable_install_paths
 
         editable_paths = get_editable_install_paths()
 
-        logger.info(f"Patching autoreload hook to allow {len(editable_paths)} editable install path(s)...")
+        if logger:
+            logger.info(f"Patching autoreload hook to allow {len(editable_paths)} editable install path(s)...")
 
         # Debug: Log the current allowlist checks
-        try:
-            from dbruntime.autoreload.file_module_utils import (  # pyright: ignore[reportMissingImports]
-                _AUTORELOAD_ALLOWLIST_CHECKS,
-            )
+        if logger:
+            try:
+                from dbruntime.autoreload.file_module_utils import (  # ty:ignore[unresolved-import]
+                    _AUTORELOAD_ALLOWLIST_CHECKS,
+                )
 
-            logger.info(f"Current allowlist checks before patch: {len(_AUTORELOAD_ALLOWLIST_CHECKS)}")
-        except Exception as e:  # noqa: BLE001
-            logger.debug(f"Could not access allowlist checks: {e}")
+                logger.info(f"Current allowlist checks before patch: {len(_AUTORELOAD_ALLOWLIST_CHECKS)}")
+            except Exception as e:  # noqa: BLE001
+                logger.debug(f"Could not access allowlist checks: {e}")
 
         # Register our check function
         _REGISTERED_CHECK = _editable_path_check
         register_autoreload_allowlist_check(_REGISTERED_CHECK)
 
         # Debug: Log the allowlist checks after registration
-        try:
-            from dbruntime.autoreload.file_module_utils import (  # pyright: ignore[reportMissingImports]
-                _AUTORELOAD_ALLOWLIST_CHECKS,
-            )
+        if logger:
+            try:
+                from dbruntime.autoreload.file_module_utils import (  # ty:ignore[unresolved-import]
+                    _AUTORELOAD_ALLOWLIST_CHECKS,
+                )
 
-            logger.info(f"Current allowlist checks after patch: {len(_AUTORELOAD_ALLOWLIST_CHECKS)}")
-        except Exception as e:  # noqa: BLE001
-            logger.debug(f"Could not access allowlist checks: {e}")
+                logger.info(f"Current allowlist checks after patch: {len(_AUTORELOAD_ALLOWLIST_CHECKS)}")
+            except Exception as e:  # noqa: BLE001
+                logger.debug(f"Could not access allowlist checks: {e}")
 
         _PATCH_APPLIED = True
 
-        logger.success("Autoreload hook patched successfully!")
-        if editable_paths:
-            with logger.indent():
-                logger.info("Allowing imports from editable paths:")
-                for path in sorted(editable_paths):
-                    logger.info(f"- {path}")
-        else:
-            with logger.indent():
-                logger.warning("No editable install paths found yet.")
-                logger.info("Run 'pip install -e .' first, then reapply patches.")
+        if logger:
+            logger.success("Autoreload hook patched successfully!")
+            if editable_paths:
+                with logger.indent():
+                    logger.info("Allowing imports from editable paths:")
+                    for path in sorted(editable_paths):
+                        logger.info(f"- {path}")
+            else:
+                with logger.indent():
+                    logger.warning("No editable install paths found yet.")
+                    logger.info("Run 'pip install -e .' first, then reapply patches.")
 
         return PatchResult(
             success=True,
@@ -198,21 +203,23 @@ def patch_autoreload_hook(verbose: bool = True) -> PatchResult:
         )
 
     except ImportError as e:
-        logger.warning(f"Could not import autoreload modules: {e}")
-        with logger.indent():
-            logger.info("This is normal if not running in Databricks environment.")
-            logger.info("The autoreload hook is only present in Databricks runtime.")
+        if logger:
+            logger.warning(f"Could not import autoreload modules: {e}")
+            with logger.indent():
+                logger.info("This is normal if not running in Databricks environment.")
+                logger.info("The autoreload hook is only present in Databricks runtime.")
         return PatchResult(
             success=False,
             already_patched=False,
             hook_found=False,
         )
     except Exception as e:
-        logger.error(f"Error patching autoreload hook: {e}")  # noqa: TRY400
-        import traceback
+        if logger:
+            logger.error(f"Error patching autoreload hook: {e}")  # noqa: TRY400
+            import traceback
 
-        with logger.indent():
-            logger.info(f"Traceback: {traceback.format_exc()}")
+            with logger.indent():
+                logger.info(f"Traceback: {traceback.format_exc()}")
         return PatchResult(
             success=False,
             already_patched=False,
@@ -230,7 +237,7 @@ def unpatch_autoreload_hook(verbose: bool = True) -> bool:
         True if unpatch was successful, False otherwise
     """
     global _PATCH_APPLIED, _REGISTERED_CHECK, _IMPORT_PATCH_APPLIED, _ORIGINAL_BUILTINS_IMPORT
-    logger = get_logger()
+    logger = _get_logger()
 
     success = True
 
@@ -247,23 +254,29 @@ def unpatch_autoreload_hook(verbose: bool = True) -> bool:
                 _REGISTERED_CHECK = None
                 _PATCH_APPLIED = False
 
-                logger.success("Autoreload hook patch removed successfully.")
+                if logger:
+                    logger.success("Autoreload hook patch removed successfully.")
             else:
-                logger.warning("Check function not saved, cannot unpatch.")
+                if logger:
+                    logger.warning("Check function not saved, cannot unpatch.")
                 success = False
 
         except Exception as e:
-            logger.error(f"Error removing patch: {e}")  # noqa: TRY400
+            if logger:
+                logger.error(f"Error removing patch: {e}")  # noqa: TRY400
             success = False
     else:
-        logger.info("No allowlist patch to remove.")
+        if logger:
+            logger.info("No allowlist patch to remove.")
 
     # Unpatch builtins.__import__ if it was patched
     if _IMPORT_PATCH_APPLIED and _ORIGINAL_BUILTINS_IMPORT is not None:
-        logger.info("Restoring original builtins.__import__...")
+        if logger:
+            logger.info("Restoring original builtins.__import__...")
         builtins.__import__ = _ORIGINAL_BUILTINS_IMPORT  # type: ignore[assignment]
         _IMPORT_PATCH_APPLIED = False
-        logger.success("builtins.__import__ restored.")
+        if logger:
+            logger.success("builtins.__import__ restored.")
 
     return success
 

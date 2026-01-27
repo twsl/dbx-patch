@@ -16,16 +16,30 @@ from .pth files and .egg-link files.
 """
 
 from collections.abc import Callable
+import contextlib
 import inspect
 from typing import Any
 
 from dbx_patch.models import PatchResult
-from dbx_patch.utils.logger import get_logger
 from dbx_patch.utils.runtime_version import is_runtime_version_gte
 
 _PATCH_APPLIED = False
 _ORIGINAL_IS_USER_IMPORT: Callable[..., bool] | None = None
 _EDITABLE_PATHS: set[str] = set()
+
+# Module-level cached logger
+_logger: Any = None
+
+
+def _get_logger() -> Any:
+    """Get module-level cached logger instance."""
+    global _logger
+    if _logger is None:
+        with contextlib.suppress(Exception):
+            from dbx_patch.utils.logger import get_logger
+
+            _logger = get_logger()
+    return _logger
 
 
 def detect_editable_paths() -> set[str]:
@@ -63,13 +77,7 @@ def create_patched_is_user_import(original_method: Callable[..., bool]) -> Calla
     """
 
     def patched_is_user_import(self: Any) -> bool:
-        try:
-            from dbx_patch.utils.logger import get_logger
-
-            logger = get_logger()
-        except Exception:  # noqa: S110
-            logger = None  # Fail silently if logger can't be imported
-
+        logger = _get_logger()
         if logger:
             logger.debug("WsfsImportHook.__is_user_import called (PATCHED)")
 
@@ -92,12 +100,11 @@ def create_patched_is_user_import(original_method: Callable[..., bool]) -> Calla
                 # NEW: Allow imports from editable install paths
                 if _EDITABLE_PATHS:
                     is_editable_path = any(filename.startswith(editable_path) for editable_path in _EDITABLE_PATHS)
-                    if is_editable_path:
-                        if logger:
-                            matching = [p for p in _EDITABLE_PATHS if filename.startswith(p)]
-                            logger.debug(
-                                f"WsfsImportHook: Allowing import from editable path: {filename} (matched: {matching[0] if matching else 'unknown'})"
-                            )
+                    if is_editable_path and logger:
+                        matching = [p for p in _EDITABLE_PATHS if filename.startswith(p)]
+                        logger.debug(
+                            f"WsfsImportHook: Allowing import from editable path: {filename} (matched: {matching[0] if matching else 'unknown'})"
+                        )
                         return True
 
                 # Check if from site-packages (existing behavior)
@@ -113,7 +120,9 @@ def create_patched_is_user_import(original_method: Callable[..., bool]) -> Calla
 
         except Exception as e:
             # Fail open - allow the import if we can't determine
-            get_logger().warning(f"DBX-Patch: Exception in patched __is_user_import: {e}")
+            logger = _get_logger()
+            if logger:
+                logger.warning(f"DBX-Patch: Exception in patched __is_user_import: {e}")
             return False
 
     return patched_is_user_import
@@ -132,7 +141,7 @@ def _patch_legacy_wsfs_import_hook(logger: Any, editable_paths: set[str]) -> Pat
     global _ORIGINAL_IS_USER_IMPORT
 
     try:
-        from dbruntime.wsfs_import_hook import WsfsImportHook  # pyright: ignore[reportMissingImports]
+        from dbruntime.wsfs_import_hook import WsfsImportHook  # ty:ignore[unresolved-import]
 
         logger.info(f"Patching legacy WsfsImportHook to allow {len(editable_paths)} editable install path(s)...")
 
@@ -185,11 +194,11 @@ def create_patched_is_user_import_v18(original_method: Callable[..., bool]) -> C
     """
 
     def patched_is_user_import(self: Any) -> bool:
-        import os
         import sys
 
-        if os.environ.get("DBX_PATCH_ENABLED") and os.environ.get("DBX_PATCH_LOG_LEVEL", "ERROR").upper() == "DEBUG":
-            print("[dbx-patch] _WorkspacePathEntryFinder._is_user_import called (PATCHED)", file=sys.stderr)
+        logger = _get_logger()
+        if logger:
+            logger.debug("_WorkspacePathEntryFinder._is_user_import called (PATCHED)")
 
         try:
             frame = sys._getframe()
@@ -204,12 +213,11 @@ def create_patched_is_user_import_v18(original_method: Callable[..., bool]) -> C
                 # NEW: Allow imports from editable install paths FIRST
                 if _EDITABLE_PATHS:
                     is_editable_path = any(filename.startswith(editable_path) for editable_path in _EDITABLE_PATHS)
-                    if is_editable_path:
-                        if logger:
-                            matching = [p for p in _EDITABLE_PATHS if filename.startswith(p)]
-                            logger.debug(
-                                f"_WorkspacePathEntryFinder: Allowing import from editable path: {filename} (matched: {matching[0] if matching else 'unknown'})"
-                            )
+                    if is_editable_path and logger:
+                        matching = [p for p in _EDITABLE_PATHS if filename.startswith(p)]
+                        logger.debug(
+                            f"_WorkspacePathEntryFinder: Allowing import from editable path: {filename} (matched: {matching[0] if matching else 'unknown'})"
+                        )
                         return True
 
                 # Check allow list (existing behavior)
@@ -226,7 +234,9 @@ def create_patched_is_user_import_v18(original_method: Callable[..., bool]) -> C
             return True
 
         except Exception as e:
-            get_logger().warning(f"DBX-Patch: Exception in patched _is_user_import: {e}")
+            logger = _get_logger()
+            if logger:
+                logger.warning(f"DBX-Patch: Exception in patched _is_user_import: {e}")
             return True
 
     return patched_is_user_import
@@ -245,7 +255,7 @@ def _patch_modern_workspace_import_machinery(logger: Any, editable_paths: set[st
     global _ORIGINAL_IS_USER_IMPORT
 
     try:
-        from dbruntime.workspace_import_machinery import (  # pyright: ignore[reportMissingImports]
+        from dbruntime.workspace_import_machinery import (  # ty:ignore[unresolved-import]
             _WorkspacePathEntryFinder,
         )
 
@@ -309,10 +319,11 @@ def patch_wsfs_import_hook(verbose: bool = True) -> PatchResult:
         PatchResult with operation details
     """
     global _PATCH_APPLIED, _EDITABLE_PATHS
-    logger = get_logger(verbose)
+    logger = _get_logger()
 
     if _PATCH_APPLIED:
-        logger.info("Workspace import hook patch already applied.")
+        if logger:
+            logger.info("Workspace import hook patch already applied.")
         return PatchResult(
             success=True,
             already_patched=True,
@@ -329,20 +340,22 @@ def patch_wsfs_import_hook(verbose: bool = True) -> PatchResult:
         use_modern = is_runtime_version_gte(18, 0)
 
         if use_modern:
-            logger.info("Detected DBR >= 18.0, using modern workspace_import_machinery patch")
+            if logger:
+                logger.info("Detected DBR >= 18.0, using modern workspace_import_machinery patch")
             result = _patch_modern_workspace_import_machinery(logger, _EDITABLE_PATHS)
         else:
-            logger.info("Detected DBR < 18.0, using legacy WsfsImportHook patch")
+            if logger:
+                logger.info("Detected DBR < 18.0, using legacy WsfsImportHook patch")
             result = _patch_legacy_wsfs_import_hook(logger, _EDITABLE_PATHS)
 
         if result.success:
             _PATCH_APPLIED = True
-            if _EDITABLE_PATHS:
+            if _EDITABLE_PATHS and logger:
                 with logger.indent():
                     logger.info("Allowed editable paths:")
                     for path in sorted(_EDITABLE_PATHS):
                         logger.info(f"  - {path}")
-            else:
+            elif logger:
                 with logger.indent():
                     logger.warning("No editable install paths found yet.")
                     logger.info("Run 'pip install -e .' first, then reapply patches.")
@@ -350,69 +363,10 @@ def patch_wsfs_import_hook(verbose: bool = True) -> PatchResult:
         return result
 
     except ImportError as e:
-        logger.warning(f"Could not import workspace import machinery: {e}")
-        with logger.indent():
-            logger.info("This is normal if not running in Databricks environment.")
-        return PatchResult(
-            success=False,
-            already_patched=False,
-            editable_paths_count=0,
-            editable_paths=[],
-            hook_found=False,
-            error=str(e),
-        )
-    except Exception as e:
-        logger.error(f"Error patching workspace import machinery: {e}")
-        return PatchResult(
-            success=False,
-            already_patched=False,
-            editable_paths_count=0,
-            editable_paths=[],
-            hook_found=True,
-            error=str(e),
-        )
-
-        # Save original method
-        _ORIGINAL_IS_USER_IMPORT = WsfsImportHook._WsfsImportHook__is_user_import
-
-        # Type narrowing check
-        if _ORIGINAL_IS_USER_IMPORT is None:
-            logger.error("Failed to save original method")
-            return PatchResult(
-                success=False,
-                already_patched=False,
-                editable_paths_count=0,
-                editable_paths=[],
-                hook_found=True,
-                error="Failed to save original method",
-            )
-
-        # Create and apply patch
-        patched_method = create_patched_is_user_import(_ORIGINAL_IS_USER_IMPORT)
-        WsfsImportHook._WsfsImportHook__is_user_import = patched_method
-
-        _PATCH_APPLIED = True
-
-        logger.success("WsfsImportHook patched successfully!")
-        if _EDITABLE_PATHS:
+        if logger:
+            logger.warning(f"Could not import workspace import machinery: {e}")
             with logger.indent():
-                logger.info("Allowed editable paths:")
-                for path in sorted(_EDITABLE_PATHS):
-                    logger.info(f"- {path}")
-
-        return PatchResult(
-            success=True,
-            already_patched=False,
-            editable_paths_count=len(_EDITABLE_PATHS),
-            editable_paths=sorted(_EDITABLE_PATHS),
-            hook_found=True,
-        )
-
-    except ImportError as e:
-        logger = get_logger(verbose)
-        logger.warning(f"Could not import WsfsImportHook: {e}")
-        with logger.indent():
-            logger.info("This is normal if not running in Databricks environment.")
+                logger.info("This is normal if not running in Databricks environment.")
         return PatchResult(
             success=False,
             already_patched=False,
@@ -422,7 +376,8 @@ def patch_wsfs_import_hook(verbose: bool = True) -> PatchResult:
             error=str(e),
         )
     except Exception as e:
-        get_logger(verbose).error(f"Error patching WsfsImportHook: {e}")
+        if logger:
+            logger.error(f"Error patching workspace import machinery: {e}")
         return PatchResult(
             success=False,
             already_patched=False,
@@ -443,10 +398,11 @@ def unpatch_workspace_import_hook(verbose: bool = False) -> bool:
         True if unpatch was successful, False otherwise
     """
     global _PATCH_APPLIED, _ORIGINAL_IS_USER_IMPORT
-    logger = get_logger(verbose)
+    logger = _get_logger()
 
     if not _PATCH_APPLIED:
-        logger.info("No patch to remove.")
+        if logger:
+            logger.info("No patch to remove.")
         return False
 
     try:
@@ -457,14 +413,17 @@ def unpatch_workspace_import_hook(verbose: bool = False) -> bool:
             WsfsImportHook._WsfsImportHook__is_user_import = _ORIGINAL_IS_USER_IMPORT
             _PATCH_APPLIED = False
 
-            logger.success("WsfsImportHook patch removed successfully.")
+            if logger:
+                logger.success("WsfsImportHook patch removed successfully.")
             return True
         else:
-            logger.warning("Original method not saved, cannot unpatch.")
+            if logger:
+                logger.warning("Original method not saved, cannot unpatch.")
             return False
 
     except Exception as e:
-        logger.error(f"Error removing patch: {e}")  # noqa: TRY400
+        if logger:
+            logger.error(f"Error removing patch: {e}")  # noqa: TRY400
         return False
 
 

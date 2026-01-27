@@ -8,13 +8,27 @@ hooks into Databricks' existing sys.path initialization logic.
 """
 
 from collections.abc import Callable
+import contextlib
 from typing import Any
 
 from dbx_patch.models import PatchResult
-from dbx_patch.utils.logger import get_logger
 
 _PATCH_APPLIED = False
 _ORIGINAL_PATCH_SYS_PATH: Callable[[], None] | None = None
+
+# Module-level cached logger
+_logger: Any = None
+
+
+def _get_logger() -> Any:
+    """Get module-level cached logger instance."""
+    global _logger
+    if _logger is None:
+        with contextlib.suppress(Exception):
+            from dbx_patch.utils.logger import get_logger
+
+            _logger = get_logger()
+    return _logger
 
 
 def create_patched_patch_sys_path(original_function: Callable[[], None]) -> Callable[[], None]:
@@ -30,13 +44,7 @@ def create_patched_patch_sys_path(original_function: Callable[[], None]) -> Call
     """
 
     def patched_patch_sys_path_with_developer_paths() -> None:
-        try:
-            from dbx_patch.utils.logger import get_logger
-
-            logger = get_logger()
-        except Exception:  # noqa: S110
-            logger = None  # Fail silently if logger can't be imported
-
+        logger = _get_logger()
         if logger:
             logger.debug("sys_path_init.patch_sys_path_with_developer_paths called (PATCHED)")
 
@@ -75,10 +83,11 @@ def patch_sys_path_init(verbose: bool = True) -> PatchResult:
         PatchResult with operation details
     """
     global _PATCH_APPLIED, _ORIGINAL_PATCH_SYS_PATH
-    logger = get_logger(verbose)
+    logger = _get_logger()
 
     if _PATCH_APPLIED:
-        logger.info("sys_path_init patch already applied.")
+        if logger:
+            logger.info("sys_path_init patch already applied.")
         return PatchResult(
             success=True,
             already_patched=True,
@@ -86,25 +95,28 @@ def patch_sys_path_init(verbose: bool = True) -> PatchResult:
         )
 
     try:
-        import sys_path_init  # pyright: ignore[reportMissingImports]
+        import sys_path_init  # ty:ignore[unresolved-import]
 
         # Check if function exists
         if not hasattr(sys_path_init, "patch_sys_path_with_developer_paths"):
-            logger.warning("patch_sys_path_with_developer_paths not found in sys_path_init")
+            if logger:
+                logger.warning("patch_sys_path_with_developer_paths not found in sys_path_init")
             return PatchResult(
                 success=False,
                 already_patched=False,
                 function_found=False,
             )
 
-        logger.info("Patching sys_path_init.patch_sys_path_with_developer_paths...")
+        if logger:
+            logger.info("Patching sys_path_init.patch_sys_path_with_developer_paths...")
 
         # Save original function
         _ORIGINAL_PATCH_SYS_PATH = sys_path_init.patch_sys_path_with_developer_paths
 
         # Type narrowing check
         if _ORIGINAL_PATCH_SYS_PATH is None:
-            logger.error("Failed to save original function")
+            if logger:
+                logger.error("Failed to save original function")
             return PatchResult(
                 success=False,
                 already_patched=False,
@@ -117,9 +129,10 @@ def patch_sys_path_init(verbose: bool = True) -> PatchResult:
 
         _PATCH_APPLIED = True
 
-        logger.success("sys_path_init patched successfully!")
-        with logger.indent():
-            logger.info(".pth files will be processed automatically during sys.path initialization")
+        if logger:
+            logger.success("sys_path_init patched successfully!")
+            with logger.indent():
+                logger.info(".pth files will be processed automatically during sys.path initialization")
 
         return PatchResult(
             success=True,
@@ -128,14 +141,16 @@ def patch_sys_path_init(verbose: bool = True) -> PatchResult:
         )
 
     except ImportError as e:
-        logger.warning(f"Could not import sys_path_init: {e}")
+        if logger:
+            logger.warning(f"Could not import sys_path_init: {e}")
         return PatchResult(
             success=False,
             already_patched=False,
             function_found=False,
         )
     except Exception as e:
-        logger.error(f"Error patching sys_path_init: {e}")  # noqa: TRY400
+        if logger:
+            logger.error(f"Error patching sys_path_init: {e}")  # noqa: TRY400
         return PatchResult(
             success=False,
             already_patched=False,
@@ -153,10 +168,11 @@ def unpatch_sys_path_init(verbose: bool = True) -> bool:
         True if unpatch was successful, False otherwise
     """
     global _PATCH_APPLIED, _ORIGINAL_PATCH_SYS_PATH
-    logger = get_logger(verbose)
+    logger = _get_logger()
 
     if not _PATCH_APPLIED:
-        logger.info("No patch to remove.")
+        if logger:
+            logger.info("No patch to remove.")
         return False
 
     try:
@@ -167,14 +183,17 @@ def unpatch_sys_path_init(verbose: bool = True) -> bool:
             sys_path_init.patch_sys_path_with_developer_paths = _ORIGINAL_PATCH_SYS_PATH
             _PATCH_APPLIED = False
 
-            logger.success("sys_path_init patch removed successfully.")
+            if logger:
+                logger.success("sys_path_init patch removed successfully.")
             return True
         else:
-            logger.warning("Original function not saved, cannot unpatch.")
+            if logger:
+                logger.warning("Original function not saved, cannot unpatch.")
             return False
 
     except Exception as e:
-        logger.error(f"Error removing patch: {e}")  # noqa: TRY400
+        if logger:
+            logger.error(f"Error removing patch: {e}")  # noqa: TRY400
         return False
 
 

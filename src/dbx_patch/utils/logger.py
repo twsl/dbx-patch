@@ -4,6 +4,7 @@ Provides structured logging with context managers for separator formatting.
 """
 
 from collections.abc import Generator
+import contextlib
 from contextlib import contextmanager
 import logging
 import os

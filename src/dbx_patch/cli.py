@@ -1,10 +1,19 @@
+import contextlib
+
 from dbx_patch.__about__ import __version__
 from dbx_patch.apply_patch import apply_all_patches, check_patch_status, remove_all_patches, verify_editable_installs
-from dbx_patch.utils.logger import get_logger
+
+# Module-level logger
+_logger = None
+with contextlib.suppress(Exception):
+    from dbx_patch.utils.logger import get_logger
+
+    _logger = get_logger()
 
 
 def main() -> None:
-    get_logger().info(f"dbx-patch v{__version__}!")
+    if _logger:
+        _logger.info(f"dbx-patch v{__version__}!")
 
     # Allow running as a script
     import argparse

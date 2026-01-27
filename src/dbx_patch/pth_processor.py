@@ -18,18 +18,20 @@ import sys
 from typing import Any
 
 from dbx_patch.models import PthProcessingResult
-from dbx_patch.utils.logger import get_logger
 
-_CACHED_LOGGER: Any = None
+# Module-level cached logger
+_logger: Any = None
 
 
-def _get_cached_logger() -> Any:
-    """Get cached logger instance to avoid import loops."""
-    global _CACHED_LOGGER
-    if _CACHED_LOGGER is None:
+def _get_logger() -> Any:
+    """Get module-level cached logger instance."""
+    global _logger
+    if _logger is None:
         with contextlib.suppress(Exception):
-            _CACHED_LOGGER = get_logger()
-    return _CACHED_LOGGER
+            from dbx_patch.utils.logger import get_logger
+
+            _logger = get_logger()
+    return _logger
 
 
 def get_site_packages_dirs() -> list[str]:
@@ -65,7 +67,9 @@ def find_pth_files(site_packages_dir: str) -> list[str]:
                 if pth_path.is_file():
                     pth_files.append(str(pth_path))
     except (OSError, PermissionError) as e:
-        get_logger().warning(f"Could not scan {site_packages_dir}: {e}")
+        logger = _get_logger()
+        if logger:
+            logger.warning(f"Could not scan {site_packages_dir}: {e}")
     return pth_files
 
 
@@ -83,7 +87,7 @@ def process_pth_file(pth_file_path: str) -> list[str]:
     Returns:
         List of absolute directory paths found in the file
     """
-    logger = _get_cached_logger()
+    logger = _get_logger()
     if logger:
         logger.debug(f"Processing .pth file: {pth_file_path}")
 
@@ -195,7 +199,7 @@ def add_paths_to_sys_path(paths: list[str], prepend: bool = False) -> int:
     Returns:
         Number of paths actually added
     """
-    logger = _get_cached_logger()
+    logger = _get_logger()
     if logger:
         logger.debug(f"Adding {len(paths)} path(s) to sys.path (prepend={prepend})")
 
@@ -234,9 +238,10 @@ def process_all_pth_files(force: bool = False, verbose: bool = True) -> PthProce
     all_paths = []
     pth_files_count = 0
     egg_link_paths = []
-    logger = get_logger()
+    logger = _get_logger()
 
-    logger.info(f"Scanning {len(site_dirs)} site-packages directories for editable installs...")
+    if logger:
+        logger.info(f"Scanning {len(site_dirs)} site-packages directories for editable installs...")
 
     # Process .pth files
     for site_dir in site_dirs:
@@ -246,7 +251,7 @@ def process_all_pth_files(force: bool = False, verbose: bool = True) -> PthProce
         for pth_file in pth_files:
             paths = process_pth_file(pth_file)
             all_paths.extend(paths)
-            if paths:
+            if paths and logger:
                 with logger.indent():
                     logger.info(f"Found {len(paths)} path(s) in {Path(pth_file).name}")
 
@@ -271,16 +276,17 @@ def process_all_pth_files(force: bool = False, verbose: bool = True) -> PthProce
 
     paths_added = add_paths_to_sys_path(unique_paths, prepend=False)
 
-    logger.blank()
-    logger.info("Results:")
-    with logger.indent():
-        logger.info(f"- {pth_files_count} .pth files scanned")
-        logger.info(f"- {len(egg_link_paths)} .egg-link files found")
-        logger.info(f"- {len(metadata_paths)} editable installs via metadata")
-        logger.info(f"- {len(unique_paths)} total unique editable paths")
-        logger.info(f"- {paths_added} paths added to sys.path")
+    if logger:
+        logger.blank()
+        logger.info("Results:")
+        with logger.indent():
+            logger.info(f"- {pth_files_count} .pth files scanned")
+            logger.info(f"- {len(egg_link_paths)} .egg-link files found")
+            logger.info(f"- {len(metadata_paths)} editable installs via metadata")
+            logger.info(f"- {len(unique_paths)} total unique editable paths")
+            logger.info(f"- {paths_added} paths added to sys.path")
 
-    if unique_paths:
+    if unique_paths and logger:
         logger.blank()
         logger.info("Editable install paths:")
         with logger.indent():
@@ -304,7 +310,7 @@ def get_editable_install_paths() -> set[str]:
     Returns:
         Set of absolute paths to editable install directories
     """
-    logger = _get_cached_logger()
+    logger = _get_logger()
     if logger:
         logger.debug("get_editable_install_paths() called")
 

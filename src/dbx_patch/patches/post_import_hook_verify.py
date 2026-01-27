@@ -7,10 +7,26 @@ PostImportHook is used to trigger callbacks after modules are imported.
 It shouldn't block imports, but we verify it doesn't interfere.
 """
 
+import contextlib
+from typing import Any
+
 from dbx_patch.models import PatchResult
-from dbx_patch.utils.logger import get_logger
 
 _VERIFIED = False
+
+# Module-level cached logger
+_logger: Any = None
+
+
+def _get_logger() -> Any:
+    """Get module-level cached logger instance."""
+    global _logger
+    if _logger is None:
+        with contextlib.suppress(Exception):
+            from dbx_patch.utils.logger import get_logger
+
+            _logger = get_logger()
+    return _logger
 
 
 def verify_post_import_hook(verbose: bool = True) -> PatchResult:
@@ -27,10 +43,11 @@ def verify_post_import_hook(verbose: bool = True) -> PatchResult:
         PatchResult with verification details
     """
     global _VERIFIED
-    logger = get_logger(verbose)
+    logger = _get_logger()
 
     if _VERIFIED:
-        logger.info("PostImportHook already verified.")
+        if logger:
+            logger.info("PostImportHook already verified.")
         return PatchResult(
             success=True,
             already_patched=True,
@@ -39,9 +56,10 @@ def verify_post_import_hook(verbose: bool = True) -> PatchResult:
 
     try:
         # Import the PostImportHook module
-        from dbruntime.PostImportHook import ImportHookFinder  # pyright: ignore[reportMissingImports]
+        from dbruntime.PostImportHook import ImportHookFinder  # ty:ignore[unresolved-import]
 
-        logger.info("Verifying PostImportHook compatibility...")
+        if logger:
+            logger.info("Verifying PostImportHook compatibility...")
 
         # PostImportHook works by:
         # 1. Checking if module is in _post_import_hooks registry
@@ -55,10 +73,11 @@ def verify_post_import_hook(verbose: bool = True) -> PatchResult:
 
         _VERIFIED = True
 
-        logger.success("PostImportHook verified - compatible with editable installs!")
-        with logger.indent():
-            logger.info("PostImportHook only triggers callbacks, doesn't block imports")
-            logger.info("No modifications needed")
+        if logger:
+            logger.success("PostImportHook verified - compatible with editable installs!")
+            with logger.indent():
+                logger.info("PostImportHook only triggers callbacks, doesn't block imports")
+                logger.info("No modifications needed")
 
         return PatchResult(
             success=True,
@@ -67,9 +86,10 @@ def verify_post_import_hook(verbose: bool = True) -> PatchResult:
         )
 
     except ImportError as e:
-        logger.warning(f"Could not import PostImportHook: {e}")
-        with logger.indent():
-            logger.info("This is normal if not running in Databricks environment.")
+        if logger:
+            logger.warning(f"Could not import PostImportHook: {e}")
+            with logger.indent():
+                logger.info("This is normal if not running in Databricks environment.")
         return PatchResult(
             success=False,
             already_patched=False,
@@ -77,7 +97,8 @@ def verify_post_import_hook(verbose: bool = True) -> PatchResult:
             error=str(e),
         )
     except Exception as e:
-        logger.error(f"Error verifying PostImportHook: {e}")  # noqa: TRY400
+        if logger:
+            logger.error(f"Error verifying PostImportHook: {e}")  # noqa: TRY400
         return PatchResult(
             success=False,
             already_patched=False,
