@@ -61,11 +61,9 @@ def find_pth_files(site_packages_dir: str) -> list[str]:
     pth_files = []
     try:
         site_packages_path = Path(site_packages_dir)
-        for entry in os.listdir(site_packages_dir):
-            if entry.endswith(".pth"):
-                pth_path = site_packages_path / entry
-                if pth_path.is_file():
-                    pth_files.append(str(pth_path))
+        for entry in site_packages_path.iterdir():
+            if entry.name.endswith(".pth") and entry.is_file():
+                pth_files.append(str(entry))
     except (OSError, PermissionError) as e:
         logger = _get_logger()
         if logger:
@@ -78,8 +76,12 @@ def process_pth_file(pth_file_path: str) -> list[str]:
 
     PTH files can contain:
     - Directory paths (one per line)
-    - import statements (executed but not added to sys.path)
+    - import statements (executed to install finders for PEP 660 editable installs)
     - Comments (lines starting with #)
+
+    For modern PEP 660 editable installs, the .pth file contains import statements
+    that register import hooks. We execute these statements to properly install
+    the editable package.
 
     Args:
         pth_file_path: Path to the .pth file
@@ -92,8 +94,9 @@ def process_pth_file(pth_file_path: str) -> list[str]:
         logger.debug(f"Processing .pth file: {pth_file_path}")
 
     paths = []
+
     try:
-        with open(pth_file_path, encoding="utf-8") as f:
+        with Path(pth_file_path).open(encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
 
@@ -101,17 +104,26 @@ def process_pth_file(pth_file_path: str) -> list[str]:
                 if not line or line.startswith("#"):
                     continue
 
-                # Skip import statements (these are executed by site.py but we don't handle them here)
-                if line.startswith("import "):
+                # Execute import statements (for PEP 660 editable installs)
+                if line.startswith("import ") or line.startswith("__import__"):
+                    try:
+                        # Execute the import statement
+                        # This typically installs a meta path finder for the editable package
+                        if logger:
+                            logger.debug(f"Executing .pth import statement: {line}")
+                        # Using exec is necessary here to execute .pth file import hooks
+                        # This is the standard behavior of Python's site.py
+                        exec(line, {"__file__": pth_file_path, "__name__": "__sitecustomize__"})  # noqa: S102
+                        if logger:
+                            logger.debug(f"Successfully executed import from {Path(pth_file_path).name}")
+                    except Exception as e:
+                        if logger:
+                            logger.warning(f"Failed to execute .pth import statement: {e}")
                     continue
 
                 # Check if it's a valid directory path
                 line_path = Path(line)
-                if line_path.is_absolute():
-                    abs_path = line_path
-                else:
-                    # Relative paths are relative to the .pth file's directory
-                    abs_path = (Path(pth_file_path).parent / line).resolve()
+                abs_path = line_path if line_path.is_absolute() else (Path(pth_file_path).parent / line).resolve()
 
                 if abs_path.exists() and abs_path.is_dir():
                     paths.append(str(abs_path))
@@ -139,11 +151,10 @@ def find_egg_link_paths(site_packages_dir: str) -> list[str]:
     paths = []
     try:
         site_packages_path = Path(site_packages_dir)
-        for entry in os.listdir(site_packages_dir):
-            if entry.endswith(".egg-link"):
-                egg_link_path = site_packages_path / entry
+        for entry in site_packages_path.iterdir():
+            if entry.name.endswith(".egg-link"):
                 try:
-                    with open(egg_link_path) as f:
+                    with entry.open() as f:
                         path = f.readline().strip()
                         if path:
                             path_obj = Path(path)
