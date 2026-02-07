@@ -46,17 +46,17 @@ members = [
 
 [dependency-groups]
 dev = [
-    "ruff>=0.14.14",
-    "ty>=0.0.13",
+    "ruff>=0.15.0",
+    "ty>=0.0.15",
     "bandit>=1.9.3",
-    "prek>=0.3.0",
+    "prek>=0.3.1",
     "vulture>=2.14",
     "copier>=9.11.3",
     "ipykernel>=6.31.0",
     "ipywidgets>=8.1.8",
-    "ipython>=9.9.0",
-    "jupytext>=1.18.1",
-    "nbconvert>=7.16.6",
+    "ipython>=9.10.0",
+    "jupytext>=1.19.1",
+    "nbconvert>=7.17.0",
 ]
 test = [
     "pytest>=9.0.2",
@@ -69,7 +69,7 @@ test = [
 docs = [
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.7.1",
-    "mkdocs-git-revision-date-localized-plugin>=1.5.0",
+    "mkdocs-git-revision-date-localized-plugin>=1.5.1",
     "mkdocs-awesome-nav>=3.3.0",
     "mkdocs-git-authors-plugin>=0.10.0",
     "mkapi>=4.5.0",
@@ -109,6 +109,7 @@ vcs = "git"
 style = "semver"
 pattern = "default-unprefixed"
 fallback-version = "1.0.0"
+format-jinja = "{% if distance == 0 %}{{ base }}{% else %}{{ base }}+{{ distance }}.{{ commit }}{% endif %}"
 
 [tool.hatch.build.hooks.version]
 path = "src/dbx_patch/__about__.py"
@@ -255,6 +256,7 @@ skips = ['*_test.py', '*/test_*.py']
 [tool.ty.environment]
 python-version = "3.12"
 python-platform = "linux"
+python = "/usr/local/bin/python"
 root = ["./src"]
 
 [tool.pre-commit-update.yaml]
