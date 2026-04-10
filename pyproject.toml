@@ -46,7 +46,7 @@ members = [
 
 [dependency-groups]
 dev = [
-    "ruff>=0.15.9",
+    "ruff>=0.15.10",
     "ty>=0.0.29",
     "bandit>=1.9.4",
     "prek>=0.3.8",
@@ -56,7 +56,7 @@ dev = [
     "ipywidgets>=8.1.8",
     "ipython>=9.10.1",
     "jupytext>=1.19.1",
-    "nbconvert>=7.17.0",
+    "nbconvert>=7.17.1",
 ]
 test = [
     "pytest>=9.0.3",
