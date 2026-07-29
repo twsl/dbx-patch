@@ -28,7 +28,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python ${{ env.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.python-version }}
 
@@ -50,7 +50,7 @@ jobs:
 
       - name: Run copier update
         id: run-update
-        run: uv run copier update --trust -A --vcs-ref=HEAD
+        run: uv run copier update --trust -A --vcs-ref=HEAD --defaults
 
       - name: Resolve conflicts with incoming changes
         run: |
