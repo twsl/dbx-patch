@@ -74,6 +74,8 @@ The `src/dbx_patch/` directory contains patches that modify Databricks' runtime 
 
    ```python
    original_method = SomeClass.method
+
+
    def patched_method(self, *args, **kwargs):
        # Add new behavior
        result = original_method(self, *args, **kwargs)

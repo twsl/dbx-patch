@@ -142,6 +142,7 @@ from your_package import your_module
 
 ```python
 from dbx_patch.patch_dbx import verify_editable_installs
+
 verify_editable_installs(verbose=True)
 ```
 
@@ -155,7 +156,8 @@ verify_editable_installs(verbose=True)
 
    ```python
    import os
-   os.environ['DBX_PATCH_DEBUG'] = '1'
+
+   os.environ["DBX_PATCH_DEBUG"] = "1"
 
    from your_package import module  # Watch for debug output
    ```
@@ -185,6 +187,7 @@ To automatically apply patches on every kernel restart:
 
 ```python
 from dbx_patch import patch_and_install
+
 patch_and_install()  # This will restart the kernel
 ```
 

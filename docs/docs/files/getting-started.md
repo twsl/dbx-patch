@@ -96,6 +96,7 @@ Configure cluster to use the init script:
 
 ```python
 from dbx_patch import install_sitecustomize
+
 install_sitecustomize()
 
 # Python will restart automatically in Databricks!
@@ -195,10 +196,12 @@ After installation, verify in any notebook:
 ```python
 # Check if sitecustomize.py is installed
 from dbx_patch import check_sitecustomize_status
+
 check_sitecustomize_status()
 
 # Verify editable installs are detected
 from dbx_patch import verify_editable_installs
+
 verify_editable_installs()
 ```
 
@@ -212,6 +215,7 @@ verify_editable_installs()
 
 ```python
 from dbx_patch.pth_processor import process_all_pth_files
+
 process_all_pth_files(force=True, verbose=True)
 ```
 
@@ -232,6 +236,7 @@ check_patch_status()
 
 ```python
 from dbx_patch import verify_editable_installs
+
 verify_editable_installs()
 ```
 
@@ -255,6 +260,7 @@ os.environ["DBX_PATCH_VERBOSE"] = "1"
 
 # Now apply patches - you'll see detailed trace information
 from dbx_patch import patch_dbx
+
 patch_dbx()
 ```
 
@@ -300,14 +306,17 @@ for path in editable_paths:
 ```python
 # Just process .pth files (adds paths to sys.path)
 from dbx_patch.pth_processor import process_all_pth_files
+
 process_all_pth_files()
 
 # Just patch import hook (allows imports from editable paths)
 from dbx_patch.wsfs_import_hook_patch import patch_wsfs_import_hook
+
 patch_wsfs_import_hook()
 
 # Just patch path preservation
 from dbx_patch.python_path_hook_patch import patch_python_path_hook
+
 patch_python_path_hook()
 ```
 
@@ -315,6 +324,7 @@ patch_python_path_hook()
 
 ```python
 from dbx_patch import uninstall_sitecustomize
+
 uninstall_sitecustomize()
 
 # Note: You'll need to manually restart Python after uninstalling
@@ -325,6 +335,7 @@ uninstall_sitecustomize()
 
 ```python
 from dbx_patch import remove_all_patches
+
 remove_all_patches()
 ```
 
