@@ -47,6 +47,7 @@ The simplest way to get started - patches current session AND installs automatic
 
 ```python
 from dbx_patch import patch_and_install
+
 patch_and_install()
 # Patches applied + sitecustomize.py installed
 # Python will restart automatically in Databricks!
@@ -58,6 +59,7 @@ If you only want to patch the current Python session without persistence:
 
 ```python
 from dbx_patch import patch_dbx
+
 patch_dbx()
 # Editable installs now work in this session!
 ```
@@ -69,6 +71,7 @@ For permanent solution that works across all Python restarts:
 ```python
 # Run ONCE per cluster (e.g., in init script or setup notebook)
 from dbx_patch import install_sitecustomize
+
 install_sitecustomize()
 # Python will restart automatically in Databricks!
 # After restart, patches are applied automatically on every Python startup
@@ -92,6 +95,7 @@ Python **automatically** imports `sitecustomize.py` during interpreter initializ
 ```python
 # ✅ This WORKS - patches applied at startup
 from dbx_patch import install_sitecustomize
+
 install_sitecustomize()  # Installs sitecustomize.py + auto-restarts Python
 ```
 

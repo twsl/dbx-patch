@@ -19,6 +19,7 @@ All patch classes use the singleton pattern to ensure:
 ```python
 from dbx_patch.base_patch import SingletonMeta
 
+
 class SingletonMeta(ABCMeta):
     """Thread-safe singleton metaclass."""
 
@@ -66,6 +67,7 @@ from abc import abstractmethod
 from dbx_patch.base_patch import BasePatch
 from dbx_patch.models import PatchResult
 
+
 class BasePatch(metaclass=SingletonMeta):
     """Abstract base class for all Databricks runtime patches."""
 
@@ -111,6 +113,7 @@ def _get_logger(self) -> Any:
     """Get lazily-initialized logger instance."""
     ...
 
+
 def _detect_editable_paths(self) -> set[str]:
     """Detect editable install paths from pth_processor."""
     ...
@@ -124,6 +127,7 @@ For patches that only verify compatibility without modifying behavior.
 
 ```python
 from dbx_patch.base_patch import BaseVerification
+
 
 class BaseVerification(metaclass=SingletonMeta):
     """Abstract base class for verification-only patches."""
@@ -155,9 +159,9 @@ class BaseVerification(metaclass=SingletonMeta):
 from dbx_patch.patches.sys_path_init_patch import SysPathInitPatch
 
 patch = SysPathInitPatch()
-result = patch.patch()              # Apply patch
-is_active = patch.is_applied()      # Check status
-success = patch.remove()            # Remove patch
+result = patch.patch()  # Apply patch
+is_active = patch.is_applied()  # Check status
+success = patch.remove()  # Remove patch
 ```
 
 #### 2. WsfsImportHookPatch
@@ -172,10 +176,10 @@ success = patch.remove()            # Remove patch
 from dbx_patch.patches.wsfs_import_hook_patch import WsfsImportHookPatch
 
 patch = WsfsImportHookPatch()
-result = patch.patch()              # Apply patch
+result = patch.patch()  # Apply patch
 paths = patch.get_editable_paths()  # Get allowed paths
-count = patch.refresh_paths()       # Refresh after new installs
-success = patch.remove()            # Remove patch
+count = patch.refresh_paths()  # Refresh after new installs
+success = patch.remove()  # Remove patch
 ```
 
 #### 3. PythonPathHookPatch
@@ -190,10 +194,10 @@ success = patch.remove()            # Remove patch
 from dbx_patch.patches.python_path_hook_patch import PythonPathHookPatch
 
 patch = PythonPathHookPatch()
-result = patch.patch()              # Apply patch
+result = patch.patch()  # Apply patch
 paths = patch.get_editable_paths()  # Get preserved paths
-count = patch.refresh_paths()       # Refresh cache
-success = patch.remove()            # Remove patch
+count = patch.refresh_paths()  # Refresh cache
+success = patch.remove()  # Remove patch
 ```
 
 #### 4. AutoreloadHookPatch
@@ -208,9 +212,9 @@ success = patch.remove()            # Remove patch
 from dbx_patch.patches.autoreload_hook_patch import AutoreloadHookPatch
 
 patch = AutoreloadHookPatch()
-result = patch.patch()              # Apply patch
-is_active = patch.is_applied()      # Check status
-success = patch.remove()            # Remove patch
+result = patch.patch()  # Apply patch
+is_active = patch.is_applied()  # Check status
+success = patch.remove()  # Remove patch
 ```
 
 ### Verification Patches (BaseVerification)
@@ -227,8 +231,8 @@ success = patch.remove()            # Remove patch
 from dbx_patch.patches.post_import_hook_verify import PostImportHookVerification
 
 verify = PostImportHookVerification()
-result = verify.verify()            # Perform verification
-is_done = verify.is_verified()      # Check if verified
+result = verify.verify()  # Perform verification
+is_done = verify.is_verified()  # Check if verified
 ```
 
 #### 2. WsfsPathFinderVerification
@@ -243,8 +247,8 @@ is_done = verify.is_verified()      # Check if verified
 from dbx_patch.patches.wsfs_path_finder_patch import WsfsPathFinderVerification
 
 verify = WsfsPathFinderVerification()
-result = verify.verify()            # Perform verification
-is_done = verify.is_verified()      # Check if verified
+result = verify.verify()  # Perform verification
+is_done = verify.is_verified()  # Check if verified
 ```
 
 ## Return Types
@@ -255,6 +259,7 @@ All `patch()` and `verify()` methods return a `PatchResult` dataclass:
 
 ```python
 from dataclasses import dataclass
+
 
 @dataclass
 class PatchResult:
@@ -436,10 +441,12 @@ Prefer `patch_dbx()` over individual patches:
 ```python
 # ✅ Recommended
 from dbx_patch import patch_dbx
+
 patch_dbx()
 
 # ⚠️ Only use if you need specific patches
 from dbx_patch.patches.wsfs_import_hook_patch import WsfsImportHookPatch
+
 WsfsImportHookPatch().patch()
 ```
 
@@ -486,8 +493,10 @@ All patch classes use thread-safe singleton initialization:
 ```python
 from concurrent.futures import ThreadPoolExecutor
 
+
 def patch_in_thread():
     return SysPathInitPatch()
+
 
 # All threads get the same instance
 with ThreadPoolExecutor(max_workers=10) as executor:
@@ -501,9 +510,11 @@ Enable debug logging:
 
 ```python
 import os
-os.environ['DBX_PATCH_DEBUG'] = '1'
+
+os.environ["DBX_PATCH_DEBUG"] = "1"
 
 from dbx_patch import patch_dbx
+
 patch_dbx(verbose=True)
 ```
 

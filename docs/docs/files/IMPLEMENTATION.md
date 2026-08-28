@@ -102,6 +102,7 @@ def install_sitecustomize(verbose=True, force=False, restart_python=True):
     if restart_python:
         try:
             from dbutils import DBUtils
+
             dbutils = DBUtils()
             dbutils.library.restartPython()
         except:
@@ -122,15 +123,18 @@ It applies all dbx-patch fixes BEFORE sys_path_init and import hooks are loaded.
 
 import sys
 
+
 def _apply_dbx_patch():
     """Apply dbx-patch fixes silently during startup."""
     try:
         from dbx_patch import patch_dbx
+
         patch_dbx(force_refresh=False)
     except ImportError:
         pass  # dbx-patch not installed
     except Exception as e:
         print(f"Warning: dbx-patch auto-apply failed: {e}", file=sys.stderr)
+
 
 # Apply patches immediately on import
 _apply_dbx_patch()
@@ -159,22 +163,19 @@ def patch_dbx(force_refresh=False):
     results = {}
 
     # Step 1: Patch sys_path_init to auto-process .pth files
-    results['sys_path_init'] = SysPathInitPatch().patch()
+    results["sys_path_init"] = SysPathInitPatch().patch()
 
     # Step 2: Process .pth files immediately
-    results['pth_processing'] = process_all_pth_files(
-        force=force_refresh,
-        verbose=verbose
-    )
+    results["pth_processing"] = process_all_pth_files(force=force_refresh, verbose=verbose)
 
     # Step 3: Patch WsfsImportHook to allow editable imports
-    results['wsfs_hook'] = WsfsImportHookPatch().patch()
+    results["wsfs_hook"] = WsfsImportHookPatch().patch()
 
     # Step 4: Patch PythonPathHook to preserve paths
-    results['path_hook'] = PythonPathHookPatch().patch()
+    results["path_hook"] = PythonPathHookPatch().patch()
 
     # Step 5: Patch AutoreloadDiscoverabilityHook to allow editable imports
-    results['autoreload_hook'] = AutoreloadHookPatch().patch()
+    results["autoreload_hook"] = AutoreloadHookPatch().patch()
 
     return results
 ```
@@ -227,7 +228,7 @@ def get_editable_install_paths():
     # Method 2: Scan for __editable_*.pth files (PEP 660)
     for site_dir in site_dirs:
         for pth_file in find_pth_files(site_dir):
-            if '__editable_' in pth_file:
+            if "__editable_" in pth_file:
                 # Parse .pth file for paths
                 extracted_paths = process_pth_file(pth_file)
                 paths.update(extracted_paths)
@@ -235,7 +236,7 @@ def get_editable_install_paths():
     # Method 3: Regular .pth files with directory paths
     for site_dir in site_dirs:
         for pth_file in find_pth_files(site_dir):
-            if '__editable_' not in pth_file:
+            if "__editable_" not in pth_file:
                 extracted_paths = process_pth_file(pth_file)
                 paths.update(extracted_paths)
 
@@ -253,16 +254,16 @@ def get_editable_install_paths():
 ```python
 def process_pth_file(pth_file_path):
     paths = []
-    with open(pth_file_path, 'r') as f:
+    with open(pth_file_path, "r") as f:
         for line in f:
             line = line.strip()
 
             # Skip empty lines and comments
-            if not line or line.startswith('#'):
+            if not line or line.startswith("#"):
                 continue
 
             # Skip import statements
-            if line.startswith('import '):
+            if line.startswith("import "):
                 continue
 
             # Check if it's a valid directory path
@@ -303,6 +304,7 @@ def process_pth_file(pth_file_path):
 ```python
 from dbx_patch.patches.sys_path_init_patch import SysPathInitPatch
 
+
 class SysPathInitPatch(BasePatch):
     """Patch sys_path_init to auto-process .pth files."""
 
@@ -324,6 +326,7 @@ class SysPathInitPatch(BasePatch):
             # Then process .pth files
             try:
                 from dbx_patch.pth_processor import process_all_pth_files
+
                 process_all_pth_files(force=False, verbose=False)
             except Exception:
                 pass  # Fail silently
@@ -333,6 +336,7 @@ class SysPathInitPatch(BasePatch):
         self._is_applied = True
 
         return PatchResult(success=True)
+
 
 # Usage
 patch = SysPathInitPatch()
@@ -535,6 +539,7 @@ _AUTORELOAD_ALLOWLIST_CHECKS: list[Callable[[str], bool]] = [
     lambda fname: fname.startswith("/Workspace"),
 ]
 
+
 def register_autoreload_allowlist_check(check: Callable[[str], bool]) -> None:
     _AUTORELOAD_ALLOWLIST_CHECKS.append(check)
 ```
@@ -561,10 +566,12 @@ def _editable_path_check(fname: str) -> bool:
         return False
 
     from dbx_patch.pth_processor import get_editable_install_paths
+
     editable_paths = get_editable_install_paths()
 
     # Check if the file is under any editable install path
     return any(fname.startswith(editable_path) for editable_path in editable_paths)
+
 
 def patch_autoreload_hook(verbose=True):
     try:
@@ -572,12 +579,12 @@ def patch_autoreload_hook(verbose=True):
             register_autoreload_allowlist_check,
         )
     except ImportError:
-        return {'success': False, 'reason': 'not_in_databricks'}
+        return {"success": False, "reason": "not_in_databricks"}
 
     # Register our check function
     register_autoreload_allowlist_check(_editable_path_check)
 
-    return {'success': True}
+    return {"success": True}
 ```
 
 **How It Works:**
@@ -724,9 +731,11 @@ ModuleNotFoundError: No module named 'my_editable_package'
 ```python
 from dbruntime.autoreload.file_module_utils import register_autoreload_allowlist_check
 
+
 def _editable_path_check(fname: str) -> bool:
     editable_paths = get_editable_install_paths()
     return any(fname.startswith(path) for path in editable_paths)
+
 
 register_autoreload_allowlist_check(_editable_path_check)  # NEW
 ```
@@ -962,6 +971,7 @@ install_sitecustomize()
 ```python
 # After restart - verify it's working
 from dbx_patch import check_sitecustomize_status, verify_editable_installs
+
 check_sitecustomize_status()
 verify_editable_installs()
 ```
@@ -1113,6 +1123,7 @@ The package follows a "fail-open" philosophy:
 # In sitecustomize.py
 try:
     from dbx_patch import patch_dbx
+
     patch_dbx(force_refresh=False)
 except ImportError:
     pass  # dbx-patch not installed - skip
@@ -1216,6 +1227,7 @@ If you encounter issues or have improvements:
 
 ```python
 from dbx_patch import check_sitecustomize_status, verify_editable_installs
+
 check_sitecustomize_status()
 verify_editable_installs()
 ```
@@ -1239,6 +1251,7 @@ verify_editable_installs()
 
 ```python
 from dbx_patch.install_sitecustomize import get_site_packages_path
+
 site_pkg = get_site_packages_path()
 print(f"Installing to: {site_pkg}")
 ```
@@ -1251,6 +1264,7 @@ print(f"Installing to: {site_pkg}")
 # Refresh cached paths
 from dbx_patch.patches.wsfs_import_hook_patch import refresh_editable_paths
 from dbx_patch.patches.python_path_hook_patch import refresh_editable_paths as refresh_path_hook
+
 refresh_editable_paths()
 refresh_path_hook()
 ```
@@ -1259,6 +1273,7 @@ Or use force_refresh:
 
 ```python
 from dbx_patch import patch_dbx
+
 patch_dbx(force_refresh=True)
 ```
 

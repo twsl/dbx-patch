@@ -176,16 +176,19 @@ To diagnose the issue, run the following in a notebook:
 ```python
 # Step 1: Check if patches are applied
 from dbx_patch.patch_dbx import check_patch_status
+
 status = check_patch_status()
 
 # Step 2: Check sys.path
 import sys
+
 print("Current sys.path:")
 for p in sys.path:
     print(f"  {p}")
 
 # Step 3: Check if editable paths are detected
 from dbx_patch.pth_processor import get_editable_install_paths
+
 editable_paths = get_editable_install_paths()
 print(f"\nEditable paths detected: {len(editable_paths)}")
 for p in sorted(editable_paths):
@@ -194,6 +197,7 @@ for p in sorted(editable_paths):
 
 # Step 4: Check .pth files
 from dbx_patch.pth_processor import get_site_packages_dirs, find_pth_files
+
 for site_dir in get_site_packages_dirs():
     pth_files = find_pth_files(site_dir)
     if pth_files:
@@ -203,17 +207,20 @@ for site_dir in get_site_packages_dirs():
 
 # Step 5: Check import hooks
 import sys
+
 print("\nImport hooks in sys.meta_path:")
 for hook in sys.meta_path:
     print(f"  {type(hook).__name__}: {hook}")
 
 # Step 6: Check builtins.__import__
 import builtins
+
 print(f"\nbuiltins.__import__: {builtins.__import__}")
 
 # Step 7: Try importing with debug
 import os
-os.environ['DBX_PATCH_DEBUG'] = '1'
+
+os.environ["DBX_PATCH_DEBUG"] = "1"
 from testx import function1  # This should print debug info
 ```
 
@@ -224,10 +231,12 @@ from testx import function1  # This should print debug info
 ```python
 # In notebook cell:
 from dbx_patch import patch_dbx
+
 patch_dbx(verbose=True)
 
 # Then try importing
 from testx import function1
+
 print(function1())
 ```
 
@@ -236,6 +245,7 @@ print(function1())
 ```python
 # In notebook cell (run once):
 from dbx_patch import patch_and_install
+
 patch_and_install()
 
 # This will:
@@ -248,6 +258,7 @@ patch_and_install()
 
 ```python
 from dbx_patch.patch_dbx import verify_editable_installs
+
 verify_editable_installs()
 ```
 

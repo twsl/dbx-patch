@@ -18,6 +18,7 @@
 
    ```python
    from testx import function1
+
    print(function1())
    ```
 
@@ -25,6 +26,7 @@
 
    ```python
    from dbx_patch import patch_and_install
+
    patch_and_install()  # Installs sitecustomize.py, restarts kernel
    ```
 
@@ -33,7 +35,8 @@
    ```python
    # Enable debug mode
    import os
-   os.environ['DBX_PATCH_DEBUG'] = '1'
+
+   os.environ["DBX_PATCH_DEBUG"] = "1"
 
    # Try import again (watch for debug output)
    from testx import function1
@@ -87,6 +90,7 @@
    # tests/unit/test_all_patches.py
    def test_wsfs_path_finder_patch():
        from dbx_patch.patches.wsfs_path_finder_patch import patch_wsfs_path_finder
+
        result = patch_wsfs_path_finder(verbose=False)
        assert result.success or not result.hook_found  # OK if not in Databricks
    ```

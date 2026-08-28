@@ -22,6 +22,7 @@ If this works, make it permanent:
 ```python
 # Make patches apply automatically on kernel start
 from dbx_patch import patch_and_install
+
 patch_and_install()  # This will restart the Python kernel
 ```
 
@@ -40,6 +41,7 @@ Or manually check:
 ```python
 # 1. Are editable paths detected?
 from dbx_patch.pth_processor import get_editable_install_paths
+
 paths = get_editable_install_paths()
 print(f"Detected {len(paths)} editable path(s)")
 for p in paths:
@@ -47,11 +49,13 @@ for p in paths:
 
 # 2. Are they in sys.path?
 import sys
+
 for p in paths:
     print(f"  {p}: {'✓' if p in sys.path else '✗ NOT IN sys.path'}")
 
 # 3. Are patches applied?
 from dbx_patch.patch_dbx import check_patch_status
+
 check_patch_status()
 ```
 
@@ -111,12 +115,14 @@ for site_dir in get_site_packages_dirs():
 ```python
 # A. Process .pth files manually
 from dbx_patch.pth_processor import process_all_pth_files
+
 result = process_all_pth_files(force=True, verbose=True)
 print(f"Added {result.paths_added} paths to sys.path")
 
 # B. Verify paths are now in sys.path
 import sys
 from dbx_patch.pth_processor import get_editable_install_paths
+
 for p in get_editable_install_paths():
     print(f"{p}: {'✓' if p in sys.path else '✗ STILL NOT IN sys.path'}")
 ```
@@ -139,9 +145,11 @@ for p in get_editable_install_paths():
 ```python
 # A. Enable debug mode to see which hook is blocking
 import os
-os.environ['DBX_PATCH_DEBUG'] = '1'
+
+os.environ["DBX_PATCH_DEBUG"] = "1"
 
 from dbx_patch import patch_dbx
+
 patch_dbx(verbose=True)
 
 # Now try importing - you'll see debug messages
@@ -161,12 +169,12 @@ import os
 from dbx_patch.pth_processor import get_editable_install_paths
 
 for path in get_editable_install_paths():
-    testx_dir = os.path.join(path, 'testx')
-    testx_file = os.path.join(path, 'testx.py')
+    testx_dir = os.path.join(path, "testx")
+    testx_file = os.path.join(path, "testx.py")
 
     if os.path.isdir(testx_dir):
         print(f"Found package: {testx_dir}")
-        init = os.path.join(testx_dir, '__init__.py')
+        init = os.path.join(testx_dir, "__init__.py")
         print(f"  __init__.py: {' ✓' if os.path.exists(init) else '✗ MISSING'}")
 
         # List contents
@@ -194,11 +202,13 @@ for path in get_editable_install_paths():
 ```python
 # Install sitecustomize.py for automatic patching
 from dbx_patch import patch_and_install
+
 patch_and_install(restart_python=True)
 
 # After restart, patches should apply automatically
 # Verify:
 from dbx_patch.patch_dbx import check_patch_status
+
 check_patch_status()
 ```
 
@@ -220,10 +230,12 @@ This is the CORE problem dbx-patch solves. Apply patches:
 
 ```python
 from dbx_patch import patch_dbx
+
 patch_dbx(verbose=True)
 
 # Verify it worked
 from testx import function1
+
 print(function1())
 ```
 
@@ -232,13 +244,16 @@ If it still doesn't work, run full diagnostics:
 ```python
 # Run diagnostic notebook or:
 import os
-os.environ['DBX_PATCH_DEBUG'] = '1'
+
+os.environ["DBX_PATCH_DEBUG"] = "1"
 
 from dbx_patch.patch_dbx import verify_editable_installs
+
 result = verify_editable_installs(verbose=True)
 
 # Check each hook manually
 import sys
+
 print("\\nImport hooks:")
 for hook in sys.meta_path:
     print(f"  - {type(hook).__module__}.{type(hook).__name__}")
@@ -272,6 +287,7 @@ Standard Python processes `.pth` files during startup (via `site.py`), which add
 ```python
 import sys
 
+
 # Add debug wrapper to each hook
 class DebugHookWrapper:
     def __init__(self, hook):
@@ -283,6 +299,7 @@ class DebugHookWrapper:
         result = self.hook.find_spec(*args, **kwargs)
         print(f"[{self.name}] → {result}")
         return result
+
 
 # Wrap all hooks
 sys.meta_path = [DebugHookWrapper(h) for h in sys.meta_path]
@@ -302,6 +319,7 @@ try:
     # Find the hook instance
     hook = None
     import sys
+
     for h in sys.meta_path:
         if isinstance(h, WsfsImportHook):
             hook = h
@@ -320,11 +338,13 @@ try:
         class FakeFrame:
             class code:
                 co_filename = test_file
+
             f_code = code
             f_back = None
 
         # Monkey patch get_filename temporarily
         import types
+
         frame = types.SimpleNamespace()
         frame.f_code = types.SimpleNamespace()
         frame.f_code.co_filename = test_file
@@ -339,6 +359,7 @@ try:
 except Exception as e:
     print(f"Error: {e}")
     import traceback
+
     traceback.print_exc()
 ```
 
@@ -381,11 +402,13 @@ from typing import Callable
 _original_func: Callable | None = None
 _editable_paths: set[str] = set()
 
+
 def patch_custom_hook():
     global _original_func, _editable_paths
 
     # Get editable paths
     from dbx_patch.pth_processor import get_editable_install_paths
+
     _editable_paths = get_editable_install_paths()
 
     # Import the hook
@@ -411,6 +434,7 @@ def patch_custom_hook():
 
     print(f"Patched CustomHook for {len(_editable_paths)} editable path(s)")
 
+
 # Use it
 patch_custom_hook()
 ```
@@ -435,7 +459,8 @@ Debug mode adds logging overhead. Disable it in production:
 
 ```python
 import os
-os.environ.pop('DBX_PATCH_DEBUG', None)  # Disable debug mode
+
+os.environ.pop("DBX_PATCH_DEBUG", None)  # Disable debug mode
 ```
 
 ## Best Practices
@@ -446,6 +471,7 @@ Always install sitecustomize.py for automatic patching:
 
 ```python
 from dbx_patch import patch_and_install
+
 patch_and_install()
 ```
 
@@ -469,9 +495,11 @@ After installing new editable packages:
 
 ```python
 from dbx_patch.pth_processor import process_all_pth_files
+
 process_all_pth_files(force=True)
 
 from dbx_patch.patches.wsfs_import_hook_patch import refresh_editable_paths
+
 refresh_editable_paths()
 ```
 
@@ -537,6 +565,7 @@ patch_dbx()
 
 ```python
 from dbx_patch import patch_and_install
+
 patch_and_install()
 ```
 
@@ -544,9 +573,11 @@ patch_and_install()
 
 ```python
 import os
-os.environ['DBX_PATCH_DEBUG'] = '1'
+
+os.environ["DBX_PATCH_DEBUG"] = "1"
 
 from dbx_patch.patch_dbx import verify_editable_installs
+
 verify_editable_installs(verbose=True)
 ```
 
